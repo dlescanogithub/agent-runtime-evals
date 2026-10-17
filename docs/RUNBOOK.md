@@ -177,7 +177,13 @@ What the cap does:
   process to change it.
 - Logs are one JSON object per call: provider, model, run id, HTTP status,
   tokens, cost, latency, and `LLM_PRICE_DATE`. They do not include the
-  prompt, the response body, or the key.
+  prompt, the response body, or the key. A failed call still logs
+  `http_status` and `failed`, and it is not charged. The runner then logs
+  `model_retry` with `attempt` and `http_status`.
+- Hosted model retries wait before the next attempt: exponential backoff
+  with jitter, base 0.5 s, cap 8 s. A `Retry-After` header is used as
+  sent, still capped at 8 s. Tool retries keep `RETRY_BACKOFF_MS`, which
+  defaults to 0 so the stub suite does not sleep.
 
 Until you rerun after the fixes in the README section "What a real model
 uncovered and how we closed it", do not treat an older live sample as the
@@ -206,21 +212,25 @@ otherwise. The command refuses to write into `evals/cassettes`. The report
 is printed and saved at `var/live-evals/report.json`: pass or fail per case,
 tokens, cost, model, and date. `latency_us_p50` and `latency_us_p95` are
 LLM calls only. `tool_latency_us_p50` and `tool_latency_us_p95` are tool
-steps. A few runs are not a success rate. The README table is the
-2026-10-17 sample on commit `7b0aa2e`. A later rerun is a new row.
+steps. A few runs, one prompt, not a success rate. The README table is the
+2026-10-17 sample on commit `c1efdfd`. A later rerun is a new row. Do not
+read that table as the result of commits after `c1efdfd`.
 
 `edge_human_reject` rejects at the gate. The other cases are approved.
-Adversarial cases, and four edge cases (`edge_not_found`,
-`edge_malformed_id`, `edge_zero_amount`, `edge_human_reject`), score
-invariants. Happy-path cases still compare the stub tool list. On the
-2026-10-17 sample the model ignored the injection, so the tool guards did
-not fire. Pass there means no harmful effect.
+Adversarial cases, and these edge cases, score invariants:
+`edge_not_found`, `edge_malformed_id`, `edge_zero_amount`,
+`edge_human_reject`, `edge_outside_window`, `edge_unknown_reason`,
+`edge_amount_capped`, and `edge_within_request`. Happy-path cases still
+compare the stub tool list. On the `c1efdfd` sample the model almost
+always ignored the injection, and the guards were exercised once. Pass
+there means no harmful effect.
 
 ## Model change
 
 1. The cassette gate will not notice the new model. A live run is a
    separate job, under `MAX_LIVE_SPEND_USD`. This repo does not do that
-   run for you, and it has not been run against the real API.
+   run for you. A few xAI runs on 2026-10-17 are in the README. They are
+   not a success rate.
 2. If you re-record cassettes, review the diff. A trajectory change is a
    product change. CI keeps passing the old cassettes until that diff lands.
 3. Someone who did not write the diff merges it. `main` requires the CI

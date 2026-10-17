@@ -89,7 +89,8 @@ Lumen Desk is the code in this repo.
   `runner.py` refuses to close a run as `refund_completed` unless an
   executed refund matches the order and the amount; otherwise the run is
   `failed` and the error starts with `needs_review`. `edge_human_reject`
-  shows a rejection: status `refund_rejected`, zero effects.
+  shows a rejection: zero effects and a gate on `send_refund`. The outcome
+  label is not the control. The stub cassette still says `refund_rejected`.
 
 For a real retailer, swap the rows in "What to swap" above. Keep the gate.
 
@@ -168,9 +169,9 @@ Keep the checklist. Point each line at their system, not at a slide.
 
 Still not covered, here or by adapting the docs alone: their identity
 provider, OpenTelemetry, Postgres `FOR UPDATE SKIP LOCKED`, an LLM judge,
-a human-agreement number, and a live score. The README table for a live
-rerun stays empty until they fill it from one run. One run is not a
-success rate.
+a human-agreement number, and a live score. The README table is a few
+runs on commit `c1efdfd`. A few runs are not a success rate, and they do
+not measure later commits.
 
 ## Business strategy when you adapt
 
@@ -180,7 +181,7 @@ their deck.
 - **ROI.** [BUSINESS_CASE.md](BUSINESS_CASE.md) is an illustrative model:
   about USD 290 per business day [EST] on 120 requests/day [EST], model
   bill USD 1.20/day [EST]. The only measured costs in this repo are stub
-  costs on 2026-10-17 (demo 433 micro-USD, suite 6937 micro-USD,
+  costs on 2026-10-17 (demo 433 micro-USD, suite 7371 micro-USD,
   `stub-llm-v1`). Rebuild the table with their volume, their loaded
   cost, and a price copied from the vendor page. Mark every unmeasured
   cell [EST].
@@ -189,7 +190,7 @@ their deck.
   This repo has not done that review. Gated send exits only when the
   ledger shows zero effects without an approval, the golden set is green,
   and `make eval-regression` is red. Expand one action at a time.
-- **Metrics.** [METRICS.md](METRICS.md). Quote the stub 23/23 only as a
+- **Metrics.** [METRICS.md](METRICS.md). Quote the stub 24/24 only as a
   runtime check on 2026-10-17. Customer metrics (approved without edit,
   queue age) start empty.
 - **Deployment Strategist conversation.** The pitch is the control loop,

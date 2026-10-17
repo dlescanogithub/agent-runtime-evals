@@ -90,7 +90,10 @@ historia, con el corte y las dos aprobaciones, usó 2408 tokens de entrada,
 proveedor.
 
 Si la persona rechaza el reembolso, el step queda `rejected`, el modelo
-recibe ese resultado y cierra en `refund_rejected`. El effect no se escribe.
+recibe ese resultado y el stub cierra en `refund_rejected`. El effect no
+se escribe. El caso `edge_human_reject` acepta otra etiqueta, por ejemplo
+`denied`, si no hubo effect, `send_refund` pasó por el gate, y el texto
+al cliente no dice que el reembolso ya se hizo.
 
 ## Qué pasa si se cae a la mitad de la tool
 
@@ -183,7 +186,7 @@ con el botón de aprobar. Operaciones opera. El aprobador aprueba. El que
 cambia el prompt no se mergea solo.
 
 Si me preguntan por el ahorro, separo los números. El costo del stub está
-medido (433 micro-USD la demo, 6937 micro-USD las 23 corridas, el
+medido (433 micro-USD la demo, 7371 micro-USD las 24 corridas, el
 2026-10-17). El ahorro de horas es [EST] y está en el business case, con
 los supuestos a la vista. No mezclo las dos columnas.
 
@@ -197,8 +200,11 @@ Este repo implementa un solo caso: el escritorio de reembolsos de Lumen
 Desk. El agente propone. `send_refund` y `send_email` frenan hasta que una
 persona aprueba o rechaza. `lookup_order` y `lookup_policy` solo leen. Si
 el modelo dice que el reembolso ya se hizo y no hay un effect que coincida,
-la corrida queda `failed` con `needs_review`. Si la persona rechaza, como
-en `edge_human_reject`, no se escribe ningún effect.
+la corrida queda `failed` con `needs_review`. Ese detector es una lista de
+frases en inglés y unas pocas en español (`reembolso procesado`, `ya te
+devolvimos`, `se acreditó`). Es una heurística, no una garantía: otra
+redacción o otro idioma no entra. Si la persona rechaza, como en
+`edge_human_reject`, no se escribe ningún effect.
 
 Los otros casos del README son bocetos, no código. Un agente de tickets
 que clasifica y no avisa al cliente hasta que el dueño de la cola aprueba.
@@ -229,7 +235,7 @@ La estrategia de negocio separa dos columnas. El ahorro de horas está en
 hábil [EST], sobre 120 pedidos por día [EST]). El alcance y las fases,
 con criterio de salida, están en [SCOPE.md](SCOPE.md): sombra, después
 envío con gate, después más motivos de a uno. Lo medido está en
-[METRICS.md](METRICS.md): el 2026-10-17 el stub pasó 23/23. Las métricas
+[METRICS.md](METRICS.md): el 2026-10-17 el stub pasó 24/24. Las métricas
 de un cliente (aprobado sin editar, edad de la cola) están definidas y
 vacías. En una conversación de Deployment Strategist el orden es sombra,
 después gate, el que construye no se queda con el botón, y el CI prueba

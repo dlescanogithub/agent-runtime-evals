@@ -72,3 +72,24 @@ class LiveCall:
         )
         self.ledger.charge(run_id, cost)
         return cost
+
+    def fail(self, run_id: str, http_status: int | None, started: float) -> None:
+        """Log a hosted call that did not return a completion. Do not charge it.
+
+        A 429 often has no usage object. Inventing a token cost here would
+        move the spend cap without a bill. The provider may still invoice it.
+        """
+
+        latency_us = max(0, int((time.perf_counter() - started) * 1_000_000))
+        log(
+            _logger,
+            logging.WARNING,
+            "model_call",
+            provider=self.provider,
+            model=self.model,
+            run_id=run_id,
+            http_status=http_status,
+            latency_us=latency_us,
+            price_date=self.price_date,
+            failed=True,
+        )

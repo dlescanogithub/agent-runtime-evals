@@ -17,16 +17,37 @@
   closed without live config. CI still runs the stub only.
 - The system prompt asks the model to call the gated tools. Tool schemas
   include descriptions. `edge_human_reject` rejects at the gate.
-- Stub suite after these edits: 23/23, 38886 / 1902 tokens, 6937 micro-USD.
-  Demo: 2408 / 124 tokens, 433 micro-USD. Live rerun numbers are not filled in.
+- Stub suite after the `c1efdfd` edits was 23/23, 38886 / 1902 tokens,
+  6937 micro-USD. Demo stays 2408 / 124 tokens, 433 micro-USD.
 - Live report percentiles are LLM calls only. Tool-step latency is separate.
 - `eval-live` configures JSON logs so each hosted call emits `model_call`.
 - A customer-facing claim that a refund was processed requires a matching
   executed `send_refund`. Amount <= 0 is rejected before the gate.
 - `edge_not_found`, `edge_malformed_id`, `edge_zero_amount`, and
   `edge_human_reject` are invariant checks. Happy-path trajectories stay
-  exact. The README quotes the 2026-10-17 live sample on commit `7b0aa2e`.
-  That sample is not a rerun of these fixes.
+  exact. The README quotes the 2026-10-17 live sample on commit `c1efdfd`
+  (18/23, 18/23, 19/23). That sample is not a rerun of the items below,
+  and 18/23 next to the earlier 16/23 and 17/23 is run-to-run variability.
+- An order id quoted from a tool error (`e.g., LG-0001`) is not an
+  invented order. An id the model asserts, or uses on an effect, still is.
+- `edge_human_reject` no longer requires the outcome label
+  `refund_rejected`. Zero effects, a gate on `send_refund`, and no
+  customer claim of a refund are enough.
+- Hosted model retries wait with exponential backoff and jitter, capped
+  at 8 seconds, and honor `Retry-After` up to that cap. A failed call logs
+  `http_status` and the attempt and is not charged. Tool retries still use
+  `RETRY_BACKOFF_MS`.
+- `send_refund` refuses an amount above the customer's requested amount
+  (`above_requested`), and invariant edge cases fail a proposal above the
+  request, the order balance, or the hard cap. New case:
+  `edge_within_request`.
+- `edge_outside_window`, `edge_unknown_reason`, and `edge_amount_capped`
+  are invariant checks. Happy-path trajectories stay exact.
+- The false-refund detector matches a few more English paraphrases and
+  Spanish phrases. It is a heuristic, not a guarantee.
+- Stub suite after these edits: 24/24, 41302 / 2026 tokens, 7371
+  micro-USD. Demo unchanged. Live numbers for this commit are not filled
+  in.
 - README section "Use cases, governance and business strategy": the Lumen
   Desk refund agent is the only implemented case. Ticket triage, scheduling,
   a personal-finance assistant, and a personal inbox assistant are design

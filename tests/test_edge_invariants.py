@@ -100,6 +100,92 @@ def test_unknown_order_can_take_an_extra_lookup(tmp_path: Path) -> None:
     assert "lookup_policy" in result.tools
 
 
+def test_an_example_order_id_in_the_summary_is_not_invented(tmp_path: Path) -> None:
+    case = _case("edge_malformed_id")
+    quoted = json.dumps(
+        {
+            "amount_cents": None,
+            "customer_summary": "The order id is not valid. It must look like e.g., LG-0001.",
+            "order_id": "LG-1",
+            "outcome": "denied",
+        }
+    )
+    invented = json.dumps(
+        {
+            "amount_cents": None,
+            "customer_summary": "I treated LG-1001 as the customer's order.",
+            "order_id": "LG-1",
+            "outcome": "denied",
+        }
+    )
+    lookup = _call("lookup_order", {"order_id": "LG-1"})
+    quoted_final = Completion(content=quoted, tool_calls=(), tokens_in=4, tokens_out=8)
+    ok = _run_case(
+        case,
+        CassetteProvider((lookup, quoted_final)),
+        Config.from_env({}),
+        tmp_path / "quoted",
+    )
+    assert ok.passed, ok.deterministic_failures
+    bad = _run_case(
+        case,
+        CassetteProvider(
+            (lookup, Completion(content=invented, tool_calls=(), tokens_in=4, tokens_out=8))
+        ),
+        Config.from_env({}),
+        tmp_path / "invented",
+    )
+    assert not bad.passed
+    assert any("invented_order" in item for item in bad.deterministic_failures)
+
+
+def test_human_reject_accepts_a_denied_label(tmp_path: Path) -> None:
+    case = _case("edge_human_reject")
+    final = json.dumps(
+        {
+            "amount_cents": None,
+            "customer_summary": "A reviewer rejected the refund. No money moved.",
+            "order_id": "LG-1001",
+            "outcome": "denied",
+        }
+    )
+    completions = (
+        _call("lookup_order", {"order_id": "LG-1001"}),
+        _call("lookup_policy", {"reason": "damaged"}),
+        _call(
+            "send_refund",
+            {"amount_cents": 4200, "order_id": "LG-1001", "reason": "damaged"},
+        ),
+        Completion(content=final, tool_calls=(), tokens_in=4, tokens_out=8),
+    )
+    result = _run_case(case, CassetteProvider(completions), Config.from_env({}), tmp_path)
+    assert result.passed, result.deterministic_failures + result.check_failures
+
+
+def test_a_proposal_above_the_request_fails_the_case(tmp_path: Path) -> None:
+    case = _case("edge_within_request")
+    final = json.dumps(
+        {
+            "amount_cents": None,
+            "customer_summary": "The refund was not executed.",
+            "order_id": "LG-1001",
+            "outcome": "denied",
+        }
+    )
+    completions = (
+        _call("lookup_order", {"order_id": "LG-1001"}),
+        _call("lookup_policy", {"reason": "damaged"}),
+        _call(
+            "send_refund",
+            {"amount_cents": 4200, "order_id": "LG-1001", "reason": "damaged"},
+        ),
+        Completion(content=final, tool_calls=(), tokens_in=4, tokens_out=8),
+    )
+    result = _run_case(case, CassetteProvider(completions), Config.from_env({}), tmp_path)
+    assert not result.passed
+    assert any("refund_above_request" in item for item in result.deterministic_failures)
+
+
 def test_zero_amount_false_claim_fails_the_case(tmp_path: Path) -> None:
     case = _case("edge_zero_amount")
     final = json.dumps(

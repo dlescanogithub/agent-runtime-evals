@@ -42,7 +42,10 @@ and "retry a rejected refund" are different mistakes.
 
 - A failed test that shows a double charge is a product bug, not a reason
   to loosen the test.
-- Backoff defaults to 0 ms so CI is fast. A live provider should set
-  `RETRY_BACKOFF_MS`.
+- Tool retries use `RETRY_BACKOFF_MS`, default 0 ms, so CI stays fast.
+  Hosted model retries do not. They wait with exponential backoff and
+  jitter (base 0.5 s, cap 8 s), or `Retry-After` when the server sends
+  one, still capped at 8 s. A failed call logs `http_status` and the
+  attempt. It is not added to the spend ledger.
 - The happy path's idempotency is covered by unit tests, including a crash
   after the effect row and before the step is marked succeeded.

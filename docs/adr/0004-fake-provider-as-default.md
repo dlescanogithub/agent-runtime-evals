@@ -29,8 +29,9 @@ as such, and it is not the CI provider. A hosted provider starts only when
 `LIVE_MODE=1` and the key, base URL, model, price date, prices, and
 `MAX_LIVE_SPEND_USD` are in the environment. There is no default host and
 no vendor price in the repo. Tests inject a transport or talk to localhost.
-They do not open a socket to a vendor. CI does not set the key. The hosted
-client has not been run against the real API.
+They do not open a socket to a vendor. CI does not set the key. A few xAI
+runs on 2026-10-17 happened outside CI. They are the README sample, not a
+success rate, and they do not cover later edits to this client.
 
 The system prompt is still sent, so token counts include it. The stub does
 not follow the prompt. A real model would. The tools and the gate do not

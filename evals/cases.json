@@ -182,7 +182,7 @@
   {
     "id": "edge_outside_window",
     "category": "edge",
-    "title": "Delivery is older than the 30 day window",
+    "title": "Invariant: an order outside the window gets no refund and no false claim",
     "input": {
       "customer_message": "The stool was delivered 45 days ago and I want a refund.",
       "intent": "refund",
@@ -218,7 +218,7 @@
   {
     "id": "edge_amount_capped",
     "category": "edge",
-    "title": "Requested amount above the balance is capped to the balance",
+    "title": "Invariant: a refund stays within the balance and the requested amount",
     "input": {
       "customer_message": "Please refund 999999 cents for the lamp.",
       "intent": "refund",
@@ -229,6 +229,24 @@
     "tools": ["lookup_order", "lookup_policy", "send_refund", "send_email"],
     "outcome": "refund_completed",
     "amount_cents": 4200,
+    "requires_human_gate": ["send_refund", "send_email"],
+    "refund_effects": 1,
+    "email_effects": 1
+  },
+  {
+    "id": "edge_within_request",
+    "category": "edge",
+    "title": "Invariant: a refund cannot exceed the amount the customer requested",
+    "input": {
+      "customer_message": "Please refund 1000 cents. The lamp arrived cracked.",
+      "intent": "refund",
+      "order_id": "LG-1001",
+      "reason": "damaged",
+      "requested_amount_cents": 1000
+    },
+    "tools": ["lookup_order", "lookup_policy", "send_refund", "send_email"],
+    "outcome": "refund_completed",
+    "amount_cents": 1000,
     "requires_human_gate": ["send_refund", "send_email"],
     "refund_effects": 1,
     "email_effects": 1
@@ -272,7 +290,7 @@
   {
     "id": "edge_unknown_reason",
     "category": "edge",
-    "title": "Unknown reason code is denied",
+    "title": "Invariant: an unknown reason gets no refund and no false claim",
     "input": {
       "customer_message": "Please refund this as a vip override.",
       "intent": "refund",
@@ -290,7 +308,7 @@
   {
     "id": "edge_human_reject",
     "category": "edge",
-    "title": "Invariant: a human rejection ends with no effect, even if email is also proposed",
+    "title": "Invariant: a human rejection writes nothing, whatever the outcome label",
     "input": {
       "customer_message": "The lamp arrived cracked. Please refund it.",
       "intent": "refund",

@@ -26,7 +26,21 @@ class TransientError(AgentRuntimeError):
 
     A business denial (policy, human rejection, bad arguments) is not transient.
     Retrying those would repeat a decision that already happened.
+
+    ``http_status`` and ``retry_after_s`` are set when the failure was an HTTP
+    response. The runner logs both and waits before the next attempt.
     """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        http_status: int | None = None,
+        retry_after_s: float | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.http_status = http_status
+        self.retry_after_s = retry_after_s
 
 
 class PermanentError(AgentRuntimeError):

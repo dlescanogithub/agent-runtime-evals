@@ -9,7 +9,7 @@ the public Messages API and sends the documented version header
 from __future__ import annotations
 
 from agent_runtime.config import LiveSettings
-from agent_runtime.errors import PermanentError
+from agent_runtime.errors import PermanentError, TransientError
 from agent_runtime.jsonutil import as_dict, as_list, as_str, dumps
 from agent_runtime.pricing import estimate_tokens
 from agent_runtime.prompts import TOOL_DESCRIPTIONS, TOOL_NAMES
@@ -47,17 +47,25 @@ class AnthropicProvider:
 
     def complete(self, request: CompletionRequest) -> Completion:
         started = self._call.begin(request.run_id)
-        response = self._transport.post(
-            f"{self._settings.base_url}/v1/messages",
-            {
-                "x-api-key": self._settings.api_key,
-                "anthropic-version": _API_VERSION,
-                "Content-Type": "application/json",
-            },
-            dumps(_request_body(self._settings, request)).encode("utf-8"),
-            self._settings.timeout_s,
-        )
-        payload = read_json(response)
+        try:
+            response = self._transport.post(
+                f"{self._settings.base_url}/v1/messages",
+                {
+                    "x-api-key": self._settings.api_key,
+                    "anthropic-version": _API_VERSION,
+                    "Content-Type": "application/json",
+                },
+                dumps(_request_body(self._settings, request)).encode("utf-8"),
+                self._settings.timeout_s,
+            )
+        except TransientError as exc:
+            self._call.fail(request.run_id, exc.http_status, started)
+            raise
+        try:
+            payload = read_json(response)
+        except (TransientError, PermanentError):
+            self._call.fail(request.run_id, response.status, started)
+            raise
         content, calls, bill = _parse_message(payload)
         cost = self._call.finish(request.run_id, response.status, bill, started)
         return Completion(

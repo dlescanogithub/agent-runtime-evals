@@ -2,13 +2,14 @@
 
 xAI (Grok) and OpenAI both speak this shape. The provider name, base URL,
 model, and API key come from the environment. This module is not used by
-CI. It has not been run against the real xAI or OpenAI APIs.
+CI. A few xAI runs on 2026-10-17, outside CI, used an earlier revision.
+Those runs are the README sample. They are not a test of later edits.
 """
 
 from __future__ import annotations
 
 from agent_runtime.config import LiveSettings
-from agent_runtime.errors import PermanentError, ValidationError
+from agent_runtime.errors import PermanentError, TransientError, ValidationError
 from agent_runtime.jsonutil import as_dict, as_list, as_str, dumps, loads
 from agent_runtime.pricing import estimate_tokens
 from agent_runtime.prompts import TOOL_DESCRIPTIONS, TOOL_NAMES
@@ -47,16 +48,24 @@ class OpenAICompatibleProvider:
     def complete(self, request: CompletionRequest) -> Completion:
         started = self._call.begin(request.run_id)
         body = dumps(_request_body(self._settings, request)).encode("utf-8")
-        response = self._transport.post(
-            f"{self._settings.base_url}/chat/completions",
-            {
-                "Authorization": f"Bearer {self._settings.api_key}",
-                "Content-Type": "application/json",
-            },
-            body,
-            self._settings.timeout_s,
-        )
-        payload = read_json(response)
+        try:
+            response = self._transport.post(
+                f"{self._settings.base_url}/chat/completions",
+                {
+                    "Authorization": f"Bearer {self._settings.api_key}",
+                    "Content-Type": "application/json",
+                },
+                body,
+                self._settings.timeout_s,
+            )
+        except TransientError as exc:
+            self._call.fail(request.run_id, exc.http_status, started)
+            raise
+        try:
+            payload = read_json(response)
+        except (TransientError, PermanentError):
+            self._call.fail(request.run_id, response.status, started)
+            raise
         content, calls, bill = _parse_completion(payload)
         cost = self._call.finish(request.run_id, response.status, bill, started)
         return Completion(

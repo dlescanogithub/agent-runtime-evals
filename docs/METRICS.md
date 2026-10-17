@@ -10,11 +10,11 @@ Run date 2026-10-17, version 0.1.0, model `stub-llm-v1`.
 
 | Metric | How | Result |
 |---|---|---|
-| Golden-set pass rate | `make eval`, deterministic checks and the code checker | 23/23, stub |
+| Golden-set pass rate | `make eval`, deterministic checks and the code checker | 24/24, stub |
 | Checker mean | Fraction of six checklist items, scored in code. Not an LLM judge. | 1.00 (threshold 0.80) |
 | Regressions the gate can see | `make eval-regression` | The bad trajectory fails the process. This shows the mechanism. It is not a count of production incidents. |
 | Cost per demo run | Sum of per-step stub costs, including crash and resume | 433 micro-USD |
-| Cost of the suite | Same, 23 stub cases | 6937 micro-USD |
+| Cost of the suite | Same, 24 stub cases | 7371 micro-USD |
 | Step latency | Microseconds around each step, in-process | p50 1 µs on 2026-10-17. p95 is in `evals/results/latest.json` and is not checked by tests. Not an SLO. |
 | Ungated external effects in the suite | Effect rows versus observed gates | 0 ungated. The cases require the gate. |
 

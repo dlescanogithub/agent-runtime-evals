@@ -21,13 +21,14 @@ recompute from the token totals and expect the same integer.
 Token estimate for the stub: about 4 characters per token. Stable, so
 cassettes do not drift. A real provider would use the usage field from the
 API. The optional client does that when `usage` is present. That client is off
-unless `LIVE_MODE=1`, and it has not been run against a real API.
+unless `LIVE_MODE=1`. A few live runs on 2026-10-17 are in the README.
+They are not a success rate, and they do not measure every later commit.
 
 | Scenario | Model | Tokens in / out | Cost | Latency | Quality | Price date |
 |---|---|---|---|---|---|---|
-| Eval suite, 23 cases, cassette replay | stub-llm-v1 | 38886 / 1902 | 6937 micro-USD for the suite | p50 1 µs on 2026-10-17. p95 is in the report and is not a gate. | 23/23, checker mean 1.00 | Synthetic price, measured 2026-10-17 |
+| Eval suite, 24 cases, cassette replay | stub-llm-v1 | 41302 / 2026 | 7371 micro-USD for the suite | p50 1 µs on 2026-10-17. p95 is in the report and is not a gate. | 24/24, checker mean 1.00 | Synthetic price, measured 2026-10-17 |
 | One damaged-lamp refund, `make demo`, including a simulated crash and two approvals | stub-llm-v1 | 2408 / 124 | 433 micro-USD | in-process, not broken out as an SLO | completed, amount 4200 cents, both effects gated | Synthetic price, measured 2026-10-17 |
-| Same refund on a hosted model (xAI, OpenAI, or Anthropic) | not run | not measured | not measured | not measured | not measured | Not filled in. Copy the provider's page on the day you run it. This repo has not called the real API. |
+| Same refund desk on a hosted model | grok-4.20-0309-non-reasoning and grok-4.3, commit `c1efdfd` only | See the README table | US$0.036–0.072 per suite run on 2026-10-17 | LLM p50 0.70 s to 5.03 s. See the README. | 18/23, 18/23, 19/23. A few runs, one prompt, not a success rate. Not a rerun of later commits. | [docs.x.ai/developers/models](https://docs.x.ai/developers/models), 2026-10-17. US$1.25 in / US$0.20 cached / US$2.50 out per million tokens. Not a default in this repo. |
 | Illustrative production day, 120 runs [EST] at USD 0.01 per run [EST] | unnamed | [EST] | USD 1.20 / day [EST] | [EST], not this repo | [EST] | Not a quote |
 
 Latency is the time inside this process, around each step. p50 on

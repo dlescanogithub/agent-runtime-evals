@@ -30,9 +30,15 @@ _FINAL = (
 
 
 class _Transport:
-    def __init__(self, status: int, payload: dict[str, object]) -> None:
+    def __init__(
+        self,
+        status: int,
+        payload: dict[str, object],
+        response_headers: dict[str, str] | None = None,
+    ) -> None:
         self.status = status
         self.payload = payload
+        self.response_headers = response_headers or {}
         self.headers: dict[str, str] = {}
         self.body = b""
         self.url = ""
@@ -45,7 +51,11 @@ class _Transport:
         self.url = url
         self.headers = headers
         self.body = body
-        return HttpResponse(self.status, json.dumps(self.payload).encode("utf-8"))
+        return HttpResponse(
+            self.status,
+            json.dumps(self.payload).encode("utf-8"),
+            headers=self.response_headers,
+        )
 
 
 def _settings(
@@ -140,6 +150,19 @@ def test_openai_compatible_parses_a_tool_call_and_hides_the_key() -> None:
     assert all(isinstance(item, str) and item for item in descriptions)
     assert body["messages"][2]["tool_calls"][0]["function"]["name"] == "lookup_order"
     assert body["messages"][3]["role"] == "tool"
+
+
+def test_a_429_logs_http_status_and_keeps_retry_after(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="agent_runtime.providers")
+    provider = _provider(_Transport(429, {}, response_headers={"Retry-After": "1.5"}))
+    with pytest.raises(TransientError) as caught:
+        provider.complete(_request())
+    assert caught.value.http_status == 429
+    assert caught.value.retry_after_s == 1.5
+    statuses = [getattr(record, "extra_fields", {}).get("http_status") for record in caplog.records]
+    assert 429 in statuses
 
 
 def test_retryable_permanent_and_invalid_payloads() -> None:

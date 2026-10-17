@@ -19,6 +19,7 @@ from agent_runtime.history import build_request
 from agent_runtime.jsonutil import as_dict, as_int, as_str, dumps, loads
 from agent_runtime.logging_setup import log
 from agent_runtime.pricing import cost_micro_usd
+from agent_runtime.providers.backoff import retry_delay_s
 from agent_runtime.providers.base import LLMProvider
 from agent_runtime.refund_claims import (
     refund_effect_matches,
@@ -367,9 +368,17 @@ class AgentRunner:
                 break
             except TransientError as exc:
                 last_error = str(exc)
-                log(logger, logging.WARNING, "model_retry", run_id=run.id, attempt=attempt)
-                if self._config.retry_backoff_ms and attempt < self._config.max_step_attempts:
-                    time.sleep(self._config.retry_backoff_ms * attempt / 1000)
+                log(
+                    logger,
+                    logging.WARNING,
+                    "model_retry",
+                    run_id=run.id,
+                    attempt=attempt,
+                    http_status=exc.http_status,
+                    retry_after_s=exc.retry_after_s,
+                )
+                if attempt < self._config.max_step_attempts:
+                    _sleep(retry_delay_s(attempt, exc.retry_after_s))
             except PermanentError as exc:
                 return self._fail(run, "provider_error", str(exc))
         if completion is None:
@@ -639,3 +648,8 @@ def _error_code(envelope: dict[str, object]) -> str:
 
 def _elapsed_us(started_ns: int) -> int:
     return max(0, int((time.perf_counter_ns() - started_ns) / 1000))
+
+
+def _sleep(seconds: float) -> None:
+    if seconds > 0:
+        time.sleep(seconds)

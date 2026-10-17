@@ -1,8 +1,12 @@
+import logging
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from agent_runtime.catalog import FlakyCatalog, OrderCatalog
 from agent_runtime.demo import DEMO_INPUT
+from agent_runtime.errors import TransientError
 from agent_runtime.evalkit.cases import load_cassette
 from agent_runtime.providers.cassette import CassetteProvider
 from agent_runtime.providers.fake import FakeProvider
@@ -155,6 +159,33 @@ def test_email_claiming_a_zero_refund_needs_review(config) -> None:
     email = next(step for step in store.list_steps(done.run_id) if step.name == "send_email")
     assert email.output_json is not None
     assert "false_refund_claim" in email.output_json
+
+
+def test_a_429_waits_and_logs_status_and_attempt(
+    config, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    delays: list[float] = []
+    monkeypatch.setattr("agent_runtime.runner._sleep", delays.append)
+    caplog.set_level(logging.WARNING, logger="agent_runtime.runner")
+
+    class _Limited:
+        name = "limited"
+
+        def complete(self, request: CompletionRequest) -> Completion:
+            del request
+            raise TransientError(
+                "model endpoint returned HTTP 429",
+                http_status=429,
+                retry_after_s=1.25,
+            )
+
+    done = _runner(config, provider=_Limited()).start(DEMO_INPUT)
+    assert done.status == "failed"
+    assert delays == [1.25, 1.25]
+    fields = [getattr(record, "extra_fields", {}) for record in caplog.records]
+    assert {"attempt": 1, "http_status": 429} in [
+        {"attempt": item.get("attempt"), "http_status": item.get("http_status")} for item in fields
+    ]
 
 
 def test_a_claimed_amount_must_match_the_effect() -> None:

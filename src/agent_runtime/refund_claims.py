@@ -3,6 +3,10 @@
 An email or a final summary may say a refund was processed only when an
 executed ``send_refund`` matches that order and that amount. A non-positive
 amount never matches, because the tool refuses to execute one.
+
+This is a heuristic over a fixed phrase list (English, plus a few Spanish
+wordings). It is not a guarantee. A paraphrase or a language that is not
+listed still gets through. Negation is a nearby word, not a parse.
 """
 
 from __future__ import annotations
@@ -18,13 +22,24 @@ _CLAIM = re.compile(
     r"|(?:processed|issued|completed|approved).{0,40}?(?:refund|reimbursement)",
     re.IGNORECASE | re.DOTALL,
 )
-_NEGATION = re.compile(
-    r"\b(?:not|no|never|without|cannot|can't|won't|wasn't|isn't|hasn't|haven't|"
-    r"didn't|unable)\b",
+_EXTRA = re.compile(
+    r"reembolso\s+(?:procesado|emitido|aprobado|realizado|hecho)"
+    r"|ya\s+te\s+devolvimos"
+    r"|te\s+devolvimos\s+el\s+dinero"
+    r"|se\s+acredit[oó]"
+    r"|se\s+(?:proces[oó]|realiz[oó])\s+el\s+reembolso"
+    r"|hemos\s+devuelto"
+    r"|we(?:'ve| have)\s+sent\s+your\s+money\s+back"
+    r"|money\s+(?:has been|was)\s+(?:returned|sent back|refunded)",
     re.IGNORECASE,
 )
-_ZERO_CENTS = re.compile(r"\b(?:0|zero)[\s-]*cents?\b", re.IGNORECASE)
-_CENTS = re.compile(r"\b(\d+)[\s-]*cents?\b", re.IGNORECASE)
+_NEGATION = re.compile(
+    r"\b(?:not|no|never|without|cannot|can't|won't|wasn't|isn't|hasn't|haven't|"
+    r"didn't|unable|nunca|sin|jam[aá]s)\b",
+    re.IGNORECASE,
+)
+_ZERO_CENTS = re.compile(r"\b(?:0|zero|cero)[\s-]*(?:cents?|centavos)\b", re.IGNORECASE)
+_CENTS = re.compile(r"\b(\d+)[\s-]*(?:cents?|centavos)\b", re.IGNORECASE)
 
 
 def text_claims_refund_done(text: str) -> bool:
@@ -34,11 +49,12 @@ def text_claims_refund_done(text: str) -> bool:
     count. The check is the sentence, not a model judge.
     """
 
-    for match in _CLAIM.finditer(text):
-        window = text[max(0, match.start() - 48) : match.end()]
-        if _NEGATION.search(window):
-            continue
-        return True
+    for pattern in (_CLAIM, _EXTRA):
+        for match in pattern.finditer(text):
+            window = text[max(0, match.start() - 48) : match.end()]
+            if _NEGATION.search(window):
+                continue
+            return True
     return False
 
 

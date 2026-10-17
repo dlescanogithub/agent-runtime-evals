@@ -76,6 +76,9 @@ class ToolService:
             error = _validate_send_refund(arguments)
             if error is not None:
                 return error
+            capped = self._above_requested(run_id, arguments)
+            if capped is not None:
+                return capped
             return self._refund_guards(run_id, arguments)
         if name == "send_email":
             error = self._validate_send_email(arguments, run_id)
@@ -143,6 +146,9 @@ class ToolService:
         blocked = self._refund_guards(run_id, arguments)
         if blocked is not None:
             return blocked
+        capped = self._above_requested(run_id, arguments)
+        if capped is not None:
+            return capped
         order = self._catalog.get(order_id)
         if order is None:
             return fail("not_found", "No order exists with that id.")
@@ -235,7 +241,10 @@ class ToolService:
         subject = arguments.get("subject")
         body = arguments.get("body")
         if not isinstance(order_id, str) or ORDER_ID_RE.fullmatch(order_id) is None:
-            return fail("invalid_order_id", "order_id must be LG- and four digits.")
+            return fail(
+                "invalid_order_id",
+                "order_id must be LG- and four digits, for example LG-0001.",
+            )
         if not isinstance(to, str) or EMAIL_RE.fullmatch(to) is None:
             return fail(
                 "invalid_email",
@@ -285,6 +294,31 @@ class ToolService:
             )
         return None
 
+    def _above_requested(
+        self, run_id: str | None, arguments: dict[str, object]
+    ) -> dict[str, object] | None:
+        """The model may not refund more than the customer asked for.
+
+        When the request does not state a positive amount, only the order
+        balance and the hard cap apply. Those stay in policy.decide.
+        """
+
+        if run_id is None:
+            return None
+        amount = arguments.get("amount_cents")
+        if isinstance(amount, bool) or not isinstance(amount, int):
+            return None
+        raw = as_dict(loads(self._store.get_run(run_id).input_json))
+        requested = raw.get("requested_amount_cents")
+        if isinstance(requested, bool) or not isinstance(requested, int) or requested < 1:
+            return None
+        if amount > requested:
+            return fail(
+                "above_requested",
+                "amount_cents is above the amount the customer requested.",
+            )
+        return None
+
     def _refund_guards(
         self, run_id: str | None, arguments: dict[str, object]
     ) -> dict[str, object] | None:
@@ -329,7 +363,10 @@ class ToolService:
 def _validate_lookup_order(arguments: dict[str, object]) -> dict[str, object] | None:
     order_id = arguments.get("order_id")
     if not isinstance(order_id, str) or ORDER_ID_RE.fullmatch(order_id) is None:
-        return fail("invalid_order_id", "order_id must be LG- and four digits.")
+        return fail(
+            "invalid_order_id",
+            "order_id must be LG- and four digits, for example LG-0001.",
+        )
     return None
 
 
@@ -345,7 +382,10 @@ def _validate_send_refund(arguments: dict[str, object]) -> dict[str, object] | N
     amount = arguments.get("amount_cents")
     reason = arguments.get("reason")
     if not isinstance(order_id, str) or ORDER_ID_RE.fullmatch(order_id) is None:
-        return fail("invalid_order_id", "order_id must be LG- and four digits.")
+        return fail(
+            "invalid_order_id",
+            "order_id must be LG- and four digits, for example LG-0001.",
+        )
     if isinstance(amount, bool) or not isinstance(amount, int):
         return fail("invalid_amount", "amount_cents must be an integer.")
     # Zero and negative amounts are refused here, before the human gate.
