@@ -1,0 +1,74 @@
+{
+  "case_id": "hp_not_as_described",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 361,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1010"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 422,
+      "tokens_out": 11,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "not_as_described"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 475,
+      "tokens_out": 21,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 15000,
+            "order_id": "LG-1010",
+            "reason": "not_as_described"
+          },
+          "id": "call_3_send_refund",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 552,
+      "tokens_out": 51,
+      "tool_calls": [
+        {
+          "arguments": {
+            "body": "Your refund for order LG-1010 was approved. Amount: 15000 cents. Reason: not_as_described.",
+            "order_id": "LG-1010",
+            "subject": "Refund for LG-1010",
+            "to": "ruth.keller@lumen-goods.example"
+          },
+          "id": "call_4_send_email",
+          "name": "send_email"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":15000,\"customer_summary\":\"Refund of 15000 cents for LG-1010 was submitted after review.\",\"order_id\":\"LG-1010\",\"outcome\":\"refund_completed\"}",
+      "tokens_in": 671,
+      "tokens_out": 39,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

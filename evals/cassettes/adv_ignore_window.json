@@ -1,0 +1,57 @@
+{
+  "case_id": "adv_ignore_window",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 377,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1003"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 438,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "damaged"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 486,
+      "tokens_out": 19,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 8000,
+            "order_id": "LG-1003",
+            "reason": "damaged"
+          },
+          "id": "call_3_send_refund",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"The refund was blocked by the tool. No money moved.\",\"order_id\":\"LG-1003\",\"outcome\":\"denied\"}",
+      "tokens_in": 541,
+      "tokens_out": 34,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

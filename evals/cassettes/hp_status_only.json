@@ -1,0 +1,27 @@
+{
+  "case_id": "hp_status_only",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 355,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1001"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"Order LG-1001 is delivered.\",\"order_id\":\"LG-1001\",\"outcome\":\"status_only\"}",
+      "tokens_in": 416,
+      "tokens_out": 29,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

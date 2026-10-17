@@ -1,0 +1,520 @@
+"""Run the golden set against cassettes, or against the live stub when recording.
+
+Each case gets a fresh database. Cases must not see each other's refunds.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+import tempfile
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from pathlib import Path
+
+from agent_runtime import __version__
+from agent_runtime.catalog import OrderCatalog
+from agent_runtime.config import Config
+from agent_runtime.errors import AgentRuntimeError, ConfigError, SpendCapError
+from agent_runtime.evalkit.cases import EvalCase, dump_cassette, load_cases, load_cassette
+from agent_runtime.evalkit.checks import (
+    INVARIANT_EDGE_IDS,
+    adversarial_failures,
+    edge_invariant_failures,
+    effect_executed,
+    score_checks,
+)
+from agent_runtime.gate import EXTERNAL_EFFECT_TOOLS
+from agent_runtime.jsonutil import as_dict, as_str, loads
+from agent_runtime.logging_setup import configure
+from agent_runtime.pricing import MODEL_NAME
+from agent_runtime.providers.base import LLMProvider
+from agent_runtime.providers.cassette import CassetteProvider
+from agent_runtime.providers.fake import FakeProvider
+from agent_runtime.runner import AgentRunner
+from agent_runtime.store import SQLiteStore
+from agent_runtime.tools import ToolService
+from agent_runtime.types import Completion, CompletionRequest, RunOutcome, StepRecord
+
+_CATEGORY_ORDER = ("happy", "edge", "adversarial")
+
+
+@dataclass
+class CaseResult:
+    case_id: str
+    category: str
+    passed: bool
+    deterministic_failures: list[str]
+    check_score: float
+    check_failures: list[str]
+    tokens_in: int
+    tokens_out: int
+    cost_micro_usd: int
+    latency_us: list[int]
+    tool_latency_us: list[int]
+    tools: list[str]
+
+
+@dataclass
+class SuiteReport:
+    ok: bool
+    total: int
+    passed: int
+    failed: int
+    tokens_in: int
+    tokens_out: int
+    cost_micro_usd: int
+    latency_us_p50: int
+    latency_us_p95: int
+    tool_latency_us_p50: int
+    tool_latency_us_p95: int
+    check_mean: float
+    check_threshold: float
+    by_category: dict[str, dict[str, int]]
+    results: list[CaseResult]
+    text: str
+
+
+class RecordingProvider:
+    """Copies every stub completion so `record` can freeze it."""
+
+    name = "fake"
+
+    def __init__(self) -> None:
+        self._inner = FakeProvider()
+        self.completions: list[Completion] = []
+
+    def complete(self, request: CompletionRequest) -> Completion:
+        completion = self._inner.complete(request)
+        self.completions.append(completion)
+        return completion
+
+
+def run_suite(
+    evals_dir: Path, threshold: float | None = None, work_dir: Path | None = None
+) -> SuiteReport:
+    cases = load_cases(evals_dir / "cases.json")
+    config = _base_config(evals_dir, threshold)
+    results: list[CaseResult] = []
+    with _workspace(work_dir) as work:
+        for case in cases:
+            cassette = load_cassette(evals_dir / "cassettes" / f"{case.id}.json")
+            results.append(_run_case(case, CassetteProvider(cassette), config, work))
+    return _report(results, config.check_threshold, "cassette replay")
+
+
+def record_cassettes(evals_dir: Path, work_dir: Path | None = None) -> None:
+    cases = load_cases(evals_dir / "cases.json")
+    config = _base_config(evals_dir, None)
+    destination = evals_dir / "cassettes"
+    destination.mkdir(parents=True, exist_ok=True)
+    with _workspace(work_dir) as work:
+        for case in cases:
+            provider = RecordingProvider()
+            _run_case(case, provider, config, work)
+            text = dump_cassette(case.id, tuple(provider.completions))
+            (destination / f"{case.id}.json").write_text(text + "\n", encoding="utf-8")
+
+
+def run_regression(evals_dir: Path, work_dir: Path | None = None) -> SuiteReport:
+    """Replay one known-bad model transcript through the same gate as CI."""
+
+    payload = as_dict(
+        loads((evals_dir / "regressions" / "skip_lookup.json").read_text(encoding="utf-8"))
+    )
+    case_id = as_str(payload.get("case_id"), "case_id")
+    cases = {case.id: case for case in load_cases(evals_dir / "cases.json")}
+    case = cases[case_id]
+    cassette = load_cassette(evals_dir / "regressions" / "skip_lookup.json")
+    config = _base_config(evals_dir, None)
+    with _workspace(work_dir) as work:
+        result = _run_case(case, CassetteProvider(cassette), config, work)
+    report = _report([result], config.check_threshold, "forced regression")
+    why = payload.get("why")
+    if isinstance(why, str):
+        report.text = f"{why}\n{report.text}"
+    return report
+
+
+def run_live(
+    evals_dir: Path,
+    environ: Mapping[str, str] | None = None,
+    work_dir: Path | None = None,
+    provider: LLMProvider | None = None,
+) -> SuiteReport:
+    """Run the golden set against a hosted model and write cassettes elsewhere.
+
+    Fails before any provider is built when live mode is off. The committed
+    ``evals/cassettes`` directory is never the destination. CI does not call
+    this. A run here is one sample, not a success rate.
+    """
+
+    config = Config.from_env(None if environ is None else dict(environ))
+    if config.live is None or config.llm_provider == "fake":
+        raise ConfigError(
+            "eval-live requires LIVE_MODE=1, a hosted LLM_PROVIDER, LLM_API_KEY, "
+            "LLM_BASE_URL, LLM_MODEL, a price table, and MAX_LIVE_SPEND_USD. "
+            "CI does not set these. No request was sent."
+        )
+    # Per-call lines are JSON on stderr. Without this, the runbook's model_call
+    # log is dropped because the root logger has no handler.
+    configure(config.log_level)
+    cassette_dir = live_cassette_dir(environ)
+    refuse_committed_cassettes(cassette_dir, evals_dir)
+    if provider is None:
+        from agent_runtime.providers import build_provider
+
+        provider = build_provider(config)
+    cases = load_cases(evals_dir / "cases.json")
+    cassette_dir.mkdir(parents=True, exist_ok=True)
+    results: list[CaseResult] = []
+    stopped = False
+    with _workspace(work_dir) as work:
+        for case in cases:
+            capture = _LiveCapture(provider)
+            try:
+                result = _run_case(case, capture, config, work)
+            except SpendCapError as exc:
+                results.append(_live_error(case, str(exc)))
+                stopped = True
+                break
+            except AgentRuntimeError as exc:
+                results.append(_live_error(case, f"{type(exc).__name__}: {exc}"))
+                if capture.completions:
+                    _write_live_cassette(cassette_dir, case.id, capture, config)
+                continue
+            results.append(result)
+            if capture.completions:
+                _write_live_cassette(cassette_dir, case.id, capture, config)
+    report = _report(results, config.check_threshold, "live")
+    header = (
+        f"model={config.live.model} price_date={config.live.price_date} "
+        f"measured_at={datetime.now(UTC).strftime('%Y-%m-%d')} "
+        f"cassettes={cassette_dir}"
+    )
+    if stopped:
+        header = f"{header}\nlive spend cap stopped the suite"
+    report.text = f"{header}\n{report.text}"
+    return report
+
+
+def live_cassette_dir(environ: Mapping[str, str] | None = None) -> Path:
+    env = os.environ if environ is None else environ
+    raw = env.get("LIVE_CASSETTE_DIR", "var/live-evals/cassettes")
+    return Path(raw)
+
+
+def refuse_committed_cassettes(destination: Path, evals_dir: Path) -> None:
+    resolved = destination.resolve()
+    committed = (evals_dir / "cassettes").resolve()
+    if resolved == committed or _inside(resolved, committed) or _inside(committed, resolved):
+        raise ConfigError(
+            "eval-live refuses to write into the committed cassette directory "
+            f"{committed}. Set LIVE_CASSETTE_DIR to a separate path. No request was sent."
+        )
+
+
+def write_live_report(report: SuiteReport, path: Path, model: str, price_date: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, object] = {
+        "by_category": report.by_category,
+        "cost_micro_usd": report.cost_micro_usd,
+        "failed": report.failed,
+        "check_mean": report.check_mean,
+        "check_threshold": report.check_threshold,
+        "latency_scope": "llm_calls",
+        "latency_us_p50": report.latency_us_p50,
+        "latency_us_p95": report.latency_us_p95,
+        "measured_at": datetime.now(UTC).strftime("%Y-%m-%d"),
+        "model": model,
+        "note": (
+            "One live run. Not a success rate. "
+            "latency_us_p50 and latency_us_p95 are LLM calls only. "
+            "tool_latency_us_p50 and tool_latency_us_p95 are tool steps."
+        ),
+        "tool_latency_us_p50": report.tool_latency_us_p50,
+        "tool_latency_us_p95": report.tool_latency_us_p95,
+        "passed": report.passed,
+        "price_date": price_date,
+        "provider": "live",
+        "tokens_in": report.tokens_in,
+        "tokens_out": report.tokens_out,
+        "total": report.total,
+        "version": __version__,
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+class _LiveCapture:
+    def __init__(self, inner: LLMProvider) -> None:
+        self.name = inner.name
+        self._inner = inner
+        self.completions: list[Completion] = []
+
+    def complete(self, request: CompletionRequest) -> Completion:
+        completion = self._inner.complete(request)
+        self.completions.append(completion)
+        return completion
+
+
+def _write_live_cassette(
+    directory: Path, case_id: str, capture: _LiveCapture, config: Config
+) -> None:
+    if config.live is None:
+        return
+    text = dump_cassette(
+        case_id,
+        tuple(capture.completions),
+        model=config.live.model,
+        provider=config.llm_provider,
+    )
+    (directory / f"{case_id}.json").write_text(text + "\n", encoding="utf-8")
+
+
+def _live_error(case: EvalCase, message: str) -> CaseResult:
+    return CaseResult(
+        case_id=case.id,
+        category=case.category,
+        passed=False,
+        deterministic_failures=[message],
+        check_score=0.0,
+        check_failures=[],
+        tokens_in=0,
+        tokens_out=0,
+        cost_micro_usd=0,
+        latency_us=[],
+        tool_latency_us=[],
+        tools=[],
+    )
+
+
+def _inside(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
+
+
+def write_report(report: SuiteReport, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, object] = {
+        "by_category": report.by_category,
+        "cost_micro_usd": report.cost_micro_usd,
+        "failed": report.failed,
+        "check_mean": report.check_mean,
+        "check_threshold": report.check_threshold,
+        "latency_scope": "llm_calls",
+        "latency_us_p50": report.latency_us_p50,
+        "latency_us_p95": report.latency_us_p95,
+        "measured_at": datetime.now(UTC).strftime("%Y-%m-%d"),
+        "model": MODEL_NAME,
+        "tool_latency_us_p50": report.tool_latency_us_p50,
+        "tool_latency_us_p95": report.tool_latency_us_p95,
+        "passed": report.passed,
+        "provider": "cassette",
+        "tokens_in": report.tokens_in,
+        "tokens_out": report.tokens_out,
+        "total": report.total,
+        "version": __version__,
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _run_case(
+    case: EvalCase,
+    provider: LLMProvider,
+    config: Config,
+    work: Path,
+) -> CaseResult:
+    case_dir = work / case.id
+    case_config = replace(
+        config,
+        database_path=case_dir / "runtime.sqlite",
+        trace_dir=case_dir / "traces",
+    )
+    store = SQLiteStore(case_config.database_path)
+    runner = AgentRunner(case_config, store, provider, ToolService(OrderCatalog(), store))
+    outcome, gated = _drive(runner, case.case_input, case.gate_decision)
+    steps = store.list_steps(outcome.run_id)
+    tools = [step.name for step in steps if step.kind == "tool"]
+    failures = _deterministic(case, outcome, steps, gated, store)
+    checked = score_checks(case, outcome, steps, gated)
+    if checked.score < config.check_threshold:
+        passed = False
+    else:
+        passed = not failures
+    return CaseResult(
+        case_id=case.id,
+        category=case.category,
+        passed=passed,
+        deterministic_failures=failures,
+        check_score=checked.score,
+        check_failures=list(checked.failures),
+        tokens_in=outcome.tokens_in,
+        tokens_out=outcome.tokens_out,
+        cost_micro_usd=outcome.spent_micro_usd,
+        latency_us=[
+            step.latency_us for step in steps if step.kind == "llm" and step.latency_us is not None
+        ],
+        tool_latency_us=[
+            step.latency_us for step in steps if step.kind == "tool" and step.latency_us is not None
+        ],
+        tools=tools,
+    )
+
+
+def _drive(
+    runner: AgentRunner, payload: dict[str, object], gate_decision: str = "approve"
+) -> tuple[RunOutcome, list[str]]:
+    gated: list[str] = []
+    outcome = runner.start(payload)
+    # Eight is above the longest happy path (two gates) and stops a loop.
+    for _ in range(8):
+        if outcome.status != "waiting_review" or not outcome.pending:
+            break
+        for pending in outcome.pending:
+            gated.append(pending.tool_name)
+            reason = "A reviewer rejected this action." if gate_decision == "reject" else ""
+            runner.decide(outcome.run_id, pending.step_id, gate_decision, reason)
+        outcome = runner.resume(outcome.run_id)
+    return outcome, gated
+
+
+def _deterministic(
+    case: EvalCase,
+    outcome: RunOutcome,
+    steps: list[StepRecord],
+    gated: list[str],
+    store: SQLiteStore,
+) -> list[str]:
+    if case.category == "adversarial":
+        return adversarial_failures(case, outcome, steps, gated)
+    if case.id in INVARIANT_EDGE_IDS:
+        return edge_invariant_failures(case, outcome, steps, gated)
+    failures: list[str] = []
+    tools = [step.name for step in steps if step.kind == "tool"]
+    if tuple(tools) != case.tools:
+        failures.append(f"tool_trajectory expected={list(case.tools)} actual={tools}")
+    if outcome.status != "completed":
+        failures.append(
+            f"run_status expected=completed actual={outcome.status} error={outcome.error}"
+        )
+    elif outcome.output is None:
+        failures.append("final_schema missing")
+    else:
+        if outcome.output.get("outcome") != case.outcome:
+            failures.append(
+                f"outcome expected={case.outcome} actual={outcome.output.get('outcome')}"
+            )
+        actual_amount = outcome.output.get("amount_cents")
+        if actual_amount != case.amount_cents:
+            failures.append(f"amount_cents expected={case.amount_cents} actual={actual_amount}")
+        summary = outcome.output.get("customer_summary")
+        if not isinstance(summary, str) or not summary.strip():
+            failures.append("final_schema customer_summary")
+    refunds = store.count_effects("send_refund")
+    emails = store.count_effects("send_email")
+    if refunds != case.refund_effects:
+        failures.append(f"refund_effects expected={case.refund_effects} actual={refunds}")
+    if emails != case.email_effects:
+        failures.append(f"email_effects expected={case.email_effects} actual={emails}")
+    for name in case.requires_human_gate:
+        if name not in gated:
+            failures.append(f"missing_gate {name}")
+    for step in steps:
+        if step.name in EXTERNAL_EFFECT_TOOLS and effect_executed(step) and step.name not in gated:
+            failures.append(f"ungated_effect {step.name}")
+    return failures
+
+
+def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteReport:
+    passed = sum(1 for result in results if result.passed)
+    total = len(results)
+    tokens_in = sum(result.tokens_in for result in results)
+    tokens_out = sum(result.tokens_out for result in results)
+    cost = sum(result.cost_micro_usd for result in results)
+    latencies = [value for result in results for value in result.latency_us]
+    tool_latencies = [value for result in results for value in result.tool_latency_us]
+    scores = [result.check_score for result in results]
+    mean = sum(scores) / len(scores) if scores else 0.0
+    by_category: dict[str, dict[str, int]] = {}
+    for category in _CATEGORY_ORDER:
+        group = [result for result in results if result.category == category]
+        by_category[category] = {
+            "passed": sum(1 for result in group if result.passed),
+            "total": len(group),
+        }
+    ok = passed == total and total > 0
+    lines = [
+        (
+            f"eval gate ({label}): {'PASS' if ok else 'FAIL'} {passed}/{total} "
+            f"check_mean={mean:.2f} threshold={threshold:.2f}"
+        ),
+        (
+            f"tokens_in={tokens_in} tokens_out={tokens_out} cost_micro_usd={cost} "
+            f"latency_us_p50={_percentile(latencies, 50)} "
+            f"latency_us_p95={_percentile(latencies, 95)} (llm calls only) "
+            f"tool_latency_us_p50={_percentile(tool_latencies, 50)} "
+            f"tool_latency_us_p95={_percentile(tool_latencies, 95)} (tool steps)"
+        ),
+    ]
+    for result in results:
+        flag = "pass" if result.passed else "FAIL"
+        lines.append(f"{flag} {result.case_id} {result.category} check={result.check_score:.2f}")
+        for failure in result.deterministic_failures:
+            lines.append(f"  deterministic {failure}")
+        for failure in result.check_failures:
+            lines.append(f"  check {failure}")
+    return SuiteReport(
+        ok=ok,
+        total=total,
+        passed=passed,
+        failed=total - passed,
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+        cost_micro_usd=cost,
+        latency_us_p50=_percentile(latencies, 50),
+        latency_us_p95=_percentile(latencies, 95),
+        tool_latency_us_p50=_percentile(tool_latencies, 50),
+        tool_latency_us_p95=_percentile(tool_latencies, 95),
+        check_mean=mean,
+        check_threshold=threshold,
+        by_category=by_category,
+        results=results,
+        text="\n".join(lines),
+    )
+
+
+def _percentile(values: list[int], pct: float) -> int:
+    if not values:
+        return 0
+    ordered = sorted(values)
+    rank = max(1, math.ceil(pct / 100 * len(ordered)))
+    return ordered[rank - 1]
+
+
+def _base_config(evals_dir: Path, threshold: float | None) -> Config:
+    config = Config.from_env({})
+    if threshold is None:
+        threshold = config.check_threshold
+    return replace(config, evals_dir=evals_dir, check_threshold=threshold, retry_backoff_ms=0)
+
+
+class _workspace:
+    def __init__(self, path: Path | None) -> None:
+        self._path = path
+        self._temporary: tempfile.TemporaryDirectory[str] | None = None
+
+    def __enter__(self) -> Path:
+        if self._path is not None:
+            self._path.mkdir(parents=True, exist_ok=True)
+            return self._path
+        self._temporary = tempfile.TemporaryDirectory(prefix="agent-eval-")
+        return Path(self._temporary.name)
+
+    def __exit__(self, *exc: object) -> None:
+        if self._temporary is not None:
+            self._temporary.cleanup()

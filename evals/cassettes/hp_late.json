@@ -1,0 +1,74 @@
+{
+  "case_id": "hp_late",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 354,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1007"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 415,
+      "tokens_out": 8,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "late"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 462,
+      "tokens_out": 18,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 5100,
+            "order_id": "LG-1007",
+            "reason": "late"
+          },
+          "id": "call_3_send_refund",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 529,
+      "tokens_out": 48,
+      "tool_calls": [
+        {
+          "arguments": {
+            "body": "Your refund for order LG-1007 was approved. Amount: 5100 cents. Reason: late.",
+            "order_id": "LG-1007",
+            "subject": "Refund for LG-1007",
+            "to": "priya.shah@lumen-goods.example"
+          },
+          "id": "call_4_send_email",
+          "name": "send_email"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":5100,\"customer_summary\":\"Refund of 5100 cents for LG-1007 was submitted after review.\",\"order_id\":\"LG-1007\",\"outcome\":\"refund_completed\"}",
+      "tokens_in": 644,
+      "tokens_out": 39,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

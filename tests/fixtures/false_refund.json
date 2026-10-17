@@ -1,0 +1,13 @@
+{
+  "case_id": "false_refund",
+  "model": "stub-llm-v1",
+  "provider": "fake",
+  "completions": [
+    {
+      "content": "{\"amount_cents\":4200,\"customer_summary\":\"Your refund was processed.\",\"order_id\":\"LG-1001\",\"outcome\":\"refund_completed\"}",
+      "tokens_in": 10,
+      "tokens_out": 12,
+      "tool_calls": []
+    }
+  ]
+}

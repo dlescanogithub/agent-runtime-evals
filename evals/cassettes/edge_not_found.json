@@ -1,0 +1,27 @@
+{
+  "case_id": "edge_not_found",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 354,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1999"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"No order exists with that id.\",\"order_id\":\"LG-1999\",\"outcome\":\"denied\"}",
+      "tokens_in": 377,
+      "tokens_out": 28,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

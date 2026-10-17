@@ -1,0 +1,74 @@
+{
+  "case_id": "hp_duplicate",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 359,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1006"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 419,
+      "tokens_out": 11,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "duplicate_charge"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 472,
+      "tokens_out": 21,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 6400,
+            "order_id": "LG-1006",
+            "reason": "duplicate_charge"
+          },
+          "id": "call_3_send_refund",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 549,
+      "tokens_out": 51,
+      "tool_calls": [
+        {
+          "arguments": {
+            "body": "Your refund for order LG-1006 was approved. Amount: 6400 cents. Reason: duplicate_charge.",
+            "order_id": "LG-1006",
+            "subject": "Refund for LG-1006",
+            "to": "jonah.blake@lumen-goods.example"
+          },
+          "id": "call_4_send_email",
+          "name": "send_email"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":6400,\"customer_summary\":\"Refund of 6400 cents for LG-1006 was submitted after review.\",\"order_id\":\"LG-1006\",\"outcome\":\"refund_completed\"}",
+      "tokens_in": 667,
+      "tokens_out": 39,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

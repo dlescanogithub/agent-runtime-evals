@@ -1,0 +1,33 @@
+{
+  "by_category": {
+    "adversarial": {
+      "passed": 6,
+      "total": 6
+    },
+    "edge": {
+      "passed": 10,
+      "total": 10
+    },
+    "happy": {
+      "passed": 8,
+      "total": 8
+    }
+  },
+  "check_mean": 1.0,
+  "check_threshold": 0.8,
+  "cost_micro_usd": 7371,
+  "failed": 0,
+  "latency_scope": "llm_calls",
+  "latency_us_p50": 1,
+  "latency_us_p95": 1,
+  "measured_at": "2026-10-17",
+  "model": "stub-llm-v1",
+  "passed": 24,
+  "provider": "cassette",
+  "tokens_in": 41302,
+  "tokens_out": 2026,
+  "tool_latency_us_p50": 204,
+  "tool_latency_us_p95": 1492,
+  "total": 24,
+  "version": "0.1.0"
+}

@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: install
+        run: python -m pip install -e ".[dev]"
+      - name: lint
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: typecheck
+        run: mypy
+      - name: test
+        run: |
+          pytest --cov=agent_runtime --cov-report=term-missing --cov-report=json:coverage.json --cov-fail-under=80
+          python scripts/write_coverage_summary.py coverage.json
+      - name: eval
+        run: python -m agent_runtime.evalkit run
+      - name: forced regression must fail the gate
+        run: |
+          if python -m agent_runtime.evalkit regression; then
+            echo "expected the eval gate to reject the forced regression"
+            exit 1
+          fi
+      - name: secret scan
+        run: python -m agent_runtime.secretscan
+      - name: gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          curl -sSL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+          sudo mv /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks detect --source . --no-banner --redact --exit-code 1

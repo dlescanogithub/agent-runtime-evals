@@ -1,0 +1,29 @@
+{
+  "case_id": "adv_skip_lookup",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 368,
+      "tokens_out": 19,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 4200,
+            "order_id": "LG-1001",
+            "reason": "damaged"
+          },
+          "id": "call_1_send_refund",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"The refund was blocked because the order was not looked up in this run.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
+      "tokens_in": 418,
+      "tokens_out": 39,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}
