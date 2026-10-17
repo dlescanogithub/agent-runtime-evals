@@ -84,6 +84,51 @@ Full write-up, assumptions, and the phased rollout: [docs/BUSINESS_CASE.md](docs
 [docs/SCOPE.md](docs/SCOPE.md), [docs/DISCOVERY.md](docs/DISCOVERY.md).
 How this would be adapted for a real customer: [docs/ADAPT_TO_A_REAL_CLIENT.md](docs/ADAPT_TO_A_REAL_CLIENT.md).
 
+## Use cases, governance and business strategy
+
+Only the Lumen Desk refund agent is implemented. The other rows are design
+sketches for the same runtime. They name no real client, employer, or
+project, and they carry no real volume or dollar figure.
+
+### Client-style use cases
+
+| Use case | Status | Problem | Who approves | Gated effects | How this runtime handles it |
+|---|---|---|---|---|---|
+| Back-office refund agent for a retailer (Lumen Goods, fictional) | Implemented | A model can move money or email a customer before anyone checks the amount, the order, or the recipient. | A person, by CLI or the localhost API. There is no approve tool for the model. | `send_refund` and `send_email` (`src/agent_runtime/gate.py`). `lookup_order` and `lookup_policy` are reads. | Typed arguments in `tools.py`. Amount capped by `MAX_REFUND_CENTS` and by the order balance. Policy re-checked when the refund executes. Email only to the address on that order. A claimed `refund_completed` with no matching effect fails the run as `needs_review`. |
+| Email and ticket triage that routes work | Design only | A model can notify the wrong person or close a ticket a human still needs to see. | The queue owner, before any customer-facing send or a close that notifies someone. | Send, and close-with-notify. Read and draft stay open. | The same gate would hold those tool names. Not built. This repo's catalog, policy, and `@lumen-goods.example` domain stay the refund desk. |
+| Appointment scheduling | Design only | A model can book, move, or cancel the wrong slot. | The person who owns the calendar. | Create, reschedule, and cancel. Reading free/busy stays open. | The runner would hold those calls the way it holds `send_refund`. Not built. |
+
+### Personal use cases
+
+| Use case | Status | Problem | Who approves | Gated effects | How this runtime handles it |
+|---|---|---|---|---|---|
+| Personal-finance assistant | Design only | A model that can pay a bill will eventually pay the wrong one. | The account holder. | Any tool that moves money (transfer, pay). Categorizing a receipt stays open. | Propose the call; the gate holds it until that person decides. No bank adapter is in this repo. |
+| Personal inbox assistant | Design only | A draft that sends itself can mail the wrong person. | The mailbox owner. | Send. Draft and label stay open. | Same shape as `send_email`: the model proposes, the runtime holds execution. Not built. |
+
+### Governance
+
+What this repository actually does:
+
+- **Controls.** Four typed tools in `src/agent_runtime/tools.py`. Least privilege: two tools only read the synthetic catalog; two write an effect. The refund amount is capped in `src/agent_runtime/policy.py` (`MAX_REFUND_CENTS`, 100000 cents). The model cannot approve itself.
+- **Human approval gate.** `src/agent_runtime/gate.py` stops `send_refund` and `send_email` until a person approves or rejects. `edge_human_reject` ends `refund_rejected` with zero effects. Decision record: [docs/adr/0002-human-gate-for-external-effects.md](docs/adr/0002-human-gate-for-external-effects.md).
+- **Traceability.** One JSONL file per run (`src/agent_runtime/trace.py`) with the run id, latency, tokens, and cost. Email bodies stay out of the trace. The runner invariant is in `src/agent_runtime/runner.py`: `refund_completed` requires a matching executed refund. Adversarial cases check invariants in `src/agent_runtime/evalkit/checks.py`.
+- **Risk register.** [docs/RISKS.md](docs/RISKS.md).
+- **Cost controls and caps.** [docs/COST.md](docs/COST.md). The stub budget is `RUN_BUDGET_MICRO_USD`. Live mode also requires `MAX_LIVE_SPEND_USD` and prices the operator copies in. CI does not set `LIVE_MODE`.
+- **Incident and rollback.** [docs/RUNBOOK.md](docs/RUNBOOK.md): roles, a refund that should not have gone out, a worker that died mid-tool, who owns the gate, deploy the previous revision, and a person reverses money already sent.
+- **Not covered yet.** The customer's identity provider (the API has a bearer token, not their login), OpenTelemetry, Postgres `FOR UPDATE SKIP LOCKED`, an LLM judge, a human-agreement number, a golden set of 100 cases, a recorded `docs/demo.gif`, and a filled live-rerun table. Branch protection is described in [SECURITY.md](SECURITY.md) and is not enabled from this repo.
+
+### Business strategy
+
+**Problem.** A fictional retailer still has a person on the refund desk. The agent drafts a policy-capped refund. The person approves the two actions that leave the process. Write-up: [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md).
+
+**ROI model [EST].** The business case is illustrative labor math: about **USD 290 per business day** [EST] on **120 requests/day** [EST], against a model bill of **USD 1.20/day** [EST]. The measured stub cost of one demo refund is **433 micro-USD** (2026-10-17, v0.1.0, `stub-llm-v1`). That number is a synthetic price. It is not a vendor bill and it is not a saving.
+
+**Scope and phased rollout.** [docs/SCOPE.md](docs/SCOPE.md). Phase 1 is one reason code (`damaged`): shadow, then gated send. Exit requires zero external effects without a recorded approval, a green golden set, a red `make eval-regression`, a named backup, and a 30-draft shadow review. That review is not done in this repo. Phase 2 adds reason codes one at a time, each with new cases first. Phase 3 leaves the queue, the budget alert, and model changes with operations. CI keeps replaying cassettes.
+
+**Success metrics.** [docs/METRICS.md](docs/METRICS.md). Measured here on 2026-10-17, stub only: suite **23/23**, checker mean **1.00**. Customer metrics (approved without edit, queue age, cost per completed run including reviewer minutes) are defined and empty.
+
+**Deployment Strategist conversation.** Open with the control: shadow first, then a human gate, and the person who builds it does not keep the approve button. CI tests the runtime against cassettes. It does not certify a model. The ten discovery questions are in [docs/DISCOVERY.md](docs/DISCOVERY.md). How to retarget the sketches above is in [docs/ADAPT_TO_A_REAL_CLIENT.md](docs/ADAPT_TO_A_REAL_CLIENT.md).
+
 ## Architecture
 
 ```mermaid

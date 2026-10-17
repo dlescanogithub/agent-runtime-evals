@@ -187,6 +187,54 @@ medido (433 micro-USD la demo, 6937 micro-USD las 23 corridas, el
 2026-10-17). El ahorro de horas es [EST] y está en el business case, con
 los supuestos a la vista. No mezclo las dos columnas.
 
+## Casos de uso, gobernanza y estrategia
+
+El README tiene una sección fija: "Use cases, governance and business
+strategy". El detalle para adaptar el runtime está en
+[ADAPT_TO_A_REAL_CLIENT.md](ADAPT_TO_A_REAL_CLIENT.md). En corto:
+
+Este repo implementa un solo caso: el escritorio de reembolsos de Lumen
+Desk. El agente propone. `send_refund` y `send_email` frenan hasta que una
+persona aprueba o rechaza. `lookup_order` y `lookup_policy` solo leen. Si
+el modelo dice que el reembolso ya se hizo y no hay un effect que coincida,
+la corrida queda `failed` con `needs_review`. Si la persona rechaza, como
+en `edge_human_reject`, no se escribe ningún effect.
+
+Los otros casos del README son bocetos, no código. Un agente de tickets
+que clasifica y no avisa al cliente hasta que el dueño de la cola aprueba.
+Un agente de turnos que no reserva, mueve ni cancela hasta que el dueño
+del calendario dice que sí. Un asistente personal de gastos que propone un
+pago y no mueve plata. Un asistente personal de correo que redacta y no
+envía. En los cuatro, la persona aprueba el efecto. El modelo no tiene un
+botón de aprobar. Ninguno nombra un cliente, un empleador ni un proyecto
+real, y ninguno trae un volumen o un precio de verdad.
+
+La gobernanza, en este repo, se señala con archivos:
+
+- Controles: tools tipadas y privilegio mínimo en `tools.py`, tope de
+  monto en `policy.py`.
+- Gate humano: `gate.py`.
+- Trazas: un JSONL por corrida en `trace.py`, con el run id, sin el cuerpo
+  del email. Los casos adversariales chequean invariantes, no la lista
+  exacta de tools del stub.
+- Riesgos: [RISKS.md](RISKS.md).
+- Costo y topes: [COST.md](COST.md).
+- Incidente y rollback: [RUNBOOK.md](RUNBOOK.md).
+
+No cubre el identity provider del cliente, OpenTelemetry, Postgres con
+`SKIP LOCKED`, ni un juez de modelo.
+
+La estrategia de negocio separa dos columnas. El ahorro de horas está en
+[BUSINESS_CASE.md](BUSINESS_CASE.md) y es [EST] (unos USD 290 por día
+hábil [EST], sobre 120 pedidos por día [EST]). El alcance y las fases,
+con criterio de salida, están en [SCOPE.md](SCOPE.md): sombra, después
+envío con gate, después más motivos de a uno. Lo medido está en
+[METRICS.md](METRICS.md): el 2026-10-17 el stub pasó 23/23. Las métricas
+de un cliente (aprobado sin editar, edad de la cola) están definidas y
+vacías. En una conversación de Deployment Strategist el orden es sombra,
+después gate, el que construye no se queda con el botón, y el CI prueba
+el runtime.
+
 ## Preguntas que te pueden hacer
 
 ### De runtime

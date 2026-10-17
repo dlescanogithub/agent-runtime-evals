@@ -19,6 +19,11 @@
   include descriptions. `edge_human_reject` rejects at the gate.
 - Stub suite after these edits: 23/23, 38886 / 1902 tokens, 6937 micro-USD.
   Demo: 2408 / 124 tokens, 433 micro-USD. Live rerun numbers are not filled in.
+- README section "Use cases, governance and business strategy": the Lumen
+  Desk refund agent is the only implemented case. Ticket triage, scheduling,
+  a personal-finance assistant, and a personal inbox assistant are design
+  sketches. Governance points at the files that enforce it. ROI stays [EST]
+  except the dated stub measurements.
 
 ## 0.1.0 — 2026-10-17
 
