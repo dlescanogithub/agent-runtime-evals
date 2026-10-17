@@ -12,6 +12,10 @@ This is a local runtime with a human gate. It is not a hosted service.
 - CI runs two scanners: `python -m agent_runtime.secretscan` and gitleaks
   8.30.1. The gitleaks tarball is checked against a pinned SHA-256 before
   it runs. Either scanner failing fails the `ci` job.
+- `src/agent_runtime/secretscan.py` is the copy shared with the other
+  portfolio repositories. `docs/PROVENANCE.md` records its sha256.
+  `make check-secretscan` recomputes that hash. The finding ids name key
+  shapes. They are not a claim of affiliation with any company.
 
 ## What the model is not allowed to do
 

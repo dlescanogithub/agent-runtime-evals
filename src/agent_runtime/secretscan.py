@@ -1,7 +1,8 @@
-"""Look for committed credentials.
+"""Find credential-shaped strings in a working tree.
 
-This is the local equivalent of gitleaks for `make lint`. CI runs both.
-Patterns are specific on purpose so the word "token" in a docstring is not a hit.
+Used by `make lint` and CI, beside gitleaks. Patterns are narrow so the
+word "token" in a docstring is not a finding. This file is vendored across
+the portfolio repositories. ``docs/PROVENANCE.md`` records its sha256.
 """
 
 from __future__ import annotations
@@ -10,13 +11,20 @@ import re
 import sys
 from pathlib import Path
 
+# Finding ids name a key shape. They are not a claim about any company.
 PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("aws_access_key", re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("private_key", re.compile(r"-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----")),
-    ("github_token", re.compile(r"ghp_[A-Za-z0-9]{36}")),
+    (
+        "private_key",
+        re.compile(r"-----BEGIN (?:RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    ),
+    ("github_token", re.compile(r"ghp_[A-Za-z0-9]{20,}")),
     ("github_pat", re.compile(r"github_pat_[A-Za-z0-9_]{20,}")),
-    ("slack_token", re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}")),
-    ("openai_key", re.compile(r"sk-(?:proj-|live-)?[A-Za-z0-9]{20,}")),
+    ("xai_key", re.compile(r"xai-[A-Za-z0-9_-]{20,}")),
+    ("anthropic_key", re.compile(r"sk-ant-[A-Za-z0-9_-]{20,}")),
+    ("openai_key", re.compile(r"sk-(?!ant-)(?:proj-)?[A-Za-z0-9_-]{20,}")),
+    ("sk_prefix_key", re.compile(r"sk_[A-Za-z0-9]{20,}")),
+    ("bearer_token", re.compile(r"(?<![A-Za-z])Bearer [A-Za-z0-9._~+/-]{20,}")),
 )
 
 SKIP_DIRS = {

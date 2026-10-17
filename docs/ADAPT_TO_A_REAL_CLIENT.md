@@ -181,7 +181,7 @@ their deck.
 - **ROI.** [BUSINESS_CASE.md](BUSINESS_CASE.md) is an illustrative model:
   about USD 290 per business day [EST] on 120 requests/day [EST], model
   bill USD 1.20/day [EST]. The only measured costs in this repo are stub
-  costs on 2026-10-17 (demo 433 micro-USD, suite 7371 micro-USD,
+  costs on 2026-10-17 (`make demo` 433 micro-USD, `make eval` 7371 micro-USD,
   `stub-llm-v1`). Rebuild the table with their volume, their loaded
   cost, and a price copied from the vendor page. Mark every unmeasured
   cell [EST].

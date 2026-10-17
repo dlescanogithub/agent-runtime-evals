@@ -31,10 +31,10 @@ They are not a success rate, and they do not measure every later commit.
 | Same refund desk on a hosted model | grok-4.20-0309-non-reasoning and grok-4.3, commit `c1efdfd` only | See the README table | US$0.036–0.072 per suite run on 2026-10-17 | LLM p50 0.70 s to 5.03 s. See the README. | 18/23, 18/23, 19/23. A few runs, one prompt, not a success rate. Not a rerun of later commits. | [docs.x.ai/developers/models](https://docs.x.ai/developers/models), 2026-10-17. US$1.25 in / US$0.20 cached / US$2.50 out per million tokens. Not a default in this repo. |
 | Illustrative production day, 120 runs [EST] at USD 0.01 per run [EST] | unnamed | [EST] | USD 1.20 / day [EST] | [EST], not this repo | [EST] | Not a quote |
 
-Latency is the time inside this process, around each step. p50 on
-2026-10-17 was 1 microsecond. p95 moves between runs on this machine and
-stays under 2 milliseconds; tests do not compare it. It is not comparable
-to a networked model, where almost all of the time is the model call.
+Stub latency is in-process and is not an SLO. On 2026-10-17, `make eval`,
+version 0.1.0, model `stub-llm-v1`, the report's LLM-call p50 was 1 µs.
+Tool-step latency is a separate field in `evals/results/latest.json`.
+Tests do not compare either field. Neither number is a networked model call.
 
 Input tokens dominate because each model turn resends the transcript,
 including the system prompt. That is normal for a chat API. Five turns on
@@ -99,8 +99,11 @@ Hosted calls write the operator's price into that ledger as well. Set both.
 The stub suite does not use the live table. Its cost stays the synthetic
 one in `pricing.py`.
 
-This live path is untested against the real xAI, OpenAI, and Anthropic APIs
-until Diego loads a key and runs it himself. See [RUNBOOK.md](RUNBOOK.md).
+The hosted sample in the README is commit `c1efdfd`, command
+`python -m agent_runtime.evalkit live`, measured 2026-10-17. A few runs,
+one prompt, not a success rate. The OpenAI and Anthropic adapters have not
+been called against those APIs from this repository. CI does not call any
+hosted API. See [RUNBOOK.md](RUNBOOK.md).
 
 ## Controls
 
@@ -111,7 +114,7 @@ until Diego loads a key and runs it himself. See [RUNBOOK.md](RUNBOOK.md).
 | `MAX_STEP_ATTEMPTS` | 3 | Retries of a transient tool or model error. |
 | `CIRCUIT_BREAKER_THRESHOLD` | 3 | A tool that keeps failing. A successful model call does not reset the counter. |
 | `MAX_AGENT_STEPS` | 8 | A loop that never finishes. The happy path uses 5 model turns. |
-| `RETRY_BACKOFF_MS` | 0 | Wait between retries. Zero so local tests are fast. Set it for a live provider. |
+| `RETRY_BACKOFF_MS` | 0 | Wait between tool retries. Zero so local tests are fast. Hosted model retries use the capped backoff in the runbook, not this setting. |
 
 The refund amount has a separate ceiling in code: 100,000 cents per call,
 and never more than the order's refundable balance. That is not the model

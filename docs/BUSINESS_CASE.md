@@ -71,7 +71,7 @@ if external effects stay behind a person and the policy re-check.
 
 ## What would falsify this case
 
-- Review time stays near 6 minutes because the draft is usually wrong.
+- Review time stays near 6 minutes [EST] because the draft is usually wrong.
 - Analysts approve without reading, so the gate is theater.
 - Volume is far below 120/day [EST], so the build cost is not recovered.
 - The system of record cannot accept an idempotency key, so retries double-pay.

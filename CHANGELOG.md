@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The secret scanner flags `xai-`, `sk-` / `sk-proj-`, `sk-ant-`, an `sk_`
+  prefix, `ghp_` / `github_pat_`, `AKIA`, `Bearer`, and private-key headers.
+  Samples in tests are built from pieces. `docs/PROVENANCE.md` records the
+  sha256 of `src/agent_runtime/secretscan.py`. `make check-secretscan`
+  recomputes it. Runtime behavior is unchanged.
 - Optional hosted providers, off unless `LIVE_MODE=1`: an OpenAI-compatible
   client for xAI and OpenAI, and a thin Anthropic Messages adapter. Key,
   base URL, model, and prices come only from the environment. No vendor

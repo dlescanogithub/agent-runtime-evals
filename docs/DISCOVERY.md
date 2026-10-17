@@ -66,7 +66,7 @@ A backup is named. The agent has no approve tool. [hypothetical]
 
 **Design change.** Approve and reject are API and CLI actions outside the
 model. The runbook names the owner and the backup. If the answer had been
-"two people must agree above USD 100", the gate would be a second step, not
+"two people must agree above USD 100 [hypothetical]", the gate would be a second step, not
 a boolean. That is out of scope until they ask.
 
 ## 6. What sensitive data does it touch?
@@ -104,10 +104,12 @@ A stuck approval queue is not.
 **Hypothetical Lumen answer.** A draft in under a minute is enough. A run
 must not sit in `waiting_review` overnight without an owner. [hypothetical]
 
-**Design change.** The stub's in-process latency (p50 1 µs on 2026-10-17;
-p95 moves and is not a gate) is not the SLO. The SLO we would write with them is about queue
-age and failed runs, not model milliseconds. The circuit breaker and the
-per-run budget are the controls for a stuck or runaway loop.
+**Design change.** The stub's in-process latency is not the SLO. On
+2026-10-17, `make eval`, v0.1.0, the LLM-call p50 was 1 µs. Tool-step
+latency is a separate field and neither one is a gate. The SLO we would
+write with them is about queue age and failed runs, not model milliseconds.
+The circuit breaker and the per-run budget are the controls for a stuck or
+runaway loop.
 
 ## 9. How do you measure "good"?
 

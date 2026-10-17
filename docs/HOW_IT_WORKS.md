@@ -84,7 +84,7 @@ El ejemplo es el de `make demo`: pedido `LG-1001`, motivo `damaged`,
    `outcome`, `order_id`, `amount_cents`, `customer_summary`. La corrida
    queda `completed`.
 
-En la medición del 2026-10-17 (versión 0.1.0, modelo `stub-llm-v1`) esa
+En la medición del 2026-10-17 (`make demo`, versión 0.1.0, modelo `stub-llm-v1`) esa
 historia, con el corte y las dos aprobaciones, usó 2408 tokens de entrada,
 124 de salida y 433 micro-USD al precio sintético. No es una factura de un
 proveedor.

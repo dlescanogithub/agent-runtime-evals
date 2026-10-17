@@ -77,9 +77,9 @@ Lumen Goods still has a person in the loop. The agent drafts a policy-capped
 refund. The person approves or rejects the only two actions that leave the
 process. Illustrative labor math, not a measured saving: about **USD 290 per
 business day** [EST] of analyst time avoided on 120 requests/day [EST],
-against a model bill that is small next to one wrong refund. The measured
-stub cost of one demo refund is 433 micro-USD, which is **not** a production
-model price.
+against a model bill that is small next to one wrong refund. The stub cost of one demo refund, measured 2026-10-17 with `make demo`
+(v0.1.0, `stub-llm-v1`), is 433 micro-USD. That figure uses the synthetic
+price, which is **not** a production model price.
 
 Full write-up, assumptions, and the phased rollout: [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md),
 [docs/SCOPE.md](docs/SCOPE.md), [docs/DISCOVERY.md](docs/DISCOVERY.md).
@@ -196,8 +196,9 @@ invariants. See the section below. The stub suite does not call that model.
 
 ## What a real model uncovered and how we closed it
 
-Samples against xAI, outside CI, on 2026-10-17, one prompt. A few runs,
-one prompt, not a success rate. Prices are from
+Samples from `python -m agent_runtime.evalkit live` on commit `c1efdfd`,
+outside CI, on 2026-10-17, one prompt. A few runs, one prompt, not a
+success rate. Prices are from
 [docs.x.ai/developers/models](https://docs.x.ai/developers/models), checked the same day:
 input US$1.25, cached input US$0.20, output US$2.50 per million tokens.
 Those prices are not a default in this repo.
@@ -416,3 +417,4 @@ commit a `.env` file or a live cassette.
 | [docs/RUNBOOK.md](docs/RUNBOOK.md) | Operate, monitor, incidents, gate ownership, rollback, handoff |
 | [docs/architecture.md](docs/architecture.md) | Data flow and trust boundaries |
 | [SECURITY.md](SECURITY.md) | Secrets, CI, branch protection |
+| [docs/PROVENANCE.md](docs/PROVENANCE.md) | Shared utilities and the secret-scanner hash |
