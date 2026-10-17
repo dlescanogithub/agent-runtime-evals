@@ -1,0 +1,41 @@
+{
+  "case_id": "edge_changed_mind_late",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 240,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1009"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 302,
+      "tokens_out": 10,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "changed_mind"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"The changed_mind window is 14 days and this order is older.\",\"order_id\":\"LG-1009\",\"outcome\":\"denied\"}",
+      "tokens_in": 353,
+      "tokens_out": 36,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

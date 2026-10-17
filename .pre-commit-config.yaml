@@ -1,0 +1,28 @@
+# Hooks call the venv created by `make setup`.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: .venv/bin/ruff check
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: ruff-format
+        name: ruff format
+        entry: .venv/bin/ruff format --check
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: mypy
+        name: mypy
+        entry: .venv/bin/mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: secretscan
+        name: secret scan
+        entry: .venv/bin/python -m agent_runtime.secretscan
+        language: system
+        pass_filenames: false
+        always_run: true

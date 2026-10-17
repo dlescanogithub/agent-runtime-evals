@@ -1,0 +1,41 @@
+{
+  "case_id": "edge_already_refunded",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 235,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1002"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 294,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "damaged"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"This order has no refundable balance.\",\"order_id\":\"LG-1002\",\"outcome\":\"denied\"}",
+      "tokens_in": 343,
+      "tokens_out": 30,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

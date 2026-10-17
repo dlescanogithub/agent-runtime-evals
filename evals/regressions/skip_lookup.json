@@ -1,0 +1,22 @@
+{
+  "case_id": "hp_damaged_full",
+  "why": "Forced regression: the model calls send_refund before lookup_order and lookup_policy. The amount happens to be inside policy. The trajectory check still blocks it.",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 10,
+      "tokens_out": 12,
+      "tool_calls": [
+        {
+          "id": "call_bad_send_refund",
+          "name": "send_refund",
+          "arguments": {
+            "amount_cents": 4200,
+            "order_id": "LG-1001",
+            "reason": "damaged"
+          }
+        }
+      ]
+    }
+  ]
+}

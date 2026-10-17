@@ -1,0 +1,74 @@
+{
+  "case_id": "hp_changed_mind",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 240,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1008"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 301,
+      "tokens_out": 10,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "changed_mind"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 352,
+      "tokens_out": 20,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 2700,
+            "order_id": "LG-1008",
+            "reason": "changed_mind"
+          },
+          "id": "call_3_send_refund",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 426,
+      "tokens_out": 50,
+      "tool_calls": [
+        {
+          "arguments": {
+            "body": "Your refund for order LG-1008 was approved. Amount: 2700 cents. Reason: changed_mind.",
+            "order_id": "LG-1008",
+            "subject": "Refund for LG-1008",
+            "to": "elena.costa@lumen-goods.example"
+          },
+          "id": "call_4_send_email",
+          "name": "send_email"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":2700,\"customer_summary\":\"Refund of 2700 cents for LG-1008 was submitted after review.\",\"order_id\":\"LG-1008\",\"outcome\":\"refund_completed\"}",
+      "tokens_in": 543,
+      "tokens_out": 39,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

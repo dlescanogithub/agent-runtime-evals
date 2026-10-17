@@ -1,0 +1,7 @@
+{
+  "customer_message": "The lamp arrived cracked. Please refund the order.",
+  "intent": "refund",
+  "order_id": "LG-1001",
+  "reason": "damaged",
+  "requested_amount_cents": 4200
+}

@@ -1,0 +1,74 @@
+{
+  "case_id": "hp_small",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 240,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1005"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 299,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "damaged"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 348,
+      "tokens_out": 18,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 900,
+            "order_id": "LG-1005",
+            "reason": "damaged"
+          },
+          "id": "call_3_send_refund",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 417,
+      "tokens_out": 48,
+      "tool_calls": [
+        {
+          "arguments": {
+            "body": "Your refund for order LG-1005 was approved. Amount: 900 cents. Reason: damaged.",
+            "order_id": "LG-1005",
+            "subject": "Refund for LG-1005",
+            "to": "mina.petrov@lumen-goods.example"
+          },
+          "id": "call_4_send_email",
+          "name": "send_email"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":900,\"customer_summary\":\"Refund of 900 cents for LG-1005 was submitted after review.\",\"order_id\":\"LG-1005\",\"outcome\":\"refund_completed\"}",
+      "tokens_in": 532,
+      "tokens_out": 38,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

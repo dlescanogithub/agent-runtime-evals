@@ -1,0 +1,41 @@
+{
+  "case_id": "edge_unknown_reason",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 236,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1001"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 297,
+      "tokens_out": 10,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "vip_override"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"Unknown reason. Known reasons: changed_mind, damaged, duplicate_charge, late, not_as_described.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
+      "tokens_in": 349,
+      "tokens_out": 45,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}
