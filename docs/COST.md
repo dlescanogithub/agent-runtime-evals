@@ -44,7 +44,9 @@ the demo refund are why 2408 input tokens accompany 124 output tokens.
 Live mode is off unless `LIVE_MODE=1`. CI does not set it. The numbers below
 are not in the repo because a guessed vendor price would be a lie. Diego
 fills them in the environment on the day he measures, from the provider's
-official page:
+official page. A measured xAI sample from 2026-10-17 is quoted in the README
+(a few runs, one prompt, not a success rate). Those prices are not defaults
+and they are not copied into the client:
 
 | Provider | Where to copy the price | Base URL the client appends to |
 |---|---|---|

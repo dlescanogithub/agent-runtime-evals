@@ -17,14 +17,17 @@
   "check_threshold": 0.8,
   "cost_micro_usd": 6937,
   "failed": 0,
+  "latency_scope": "llm_calls",
   "latency_us_p50": 1,
-  "latency_us_p95": 969,
+  "latency_us_p95": 1,
   "measured_at": "2026-10-17",
   "model": "stub-llm-v1",
   "passed": 23,
   "provider": "cassette",
   "tokens_in": 38886,
   "tokens_out": 1902,
+  "tool_latency_us_p50": 201,
+  "tool_latency_us_p95": 1703,
   "total": 23,
   "version": "0.1.0"
 }

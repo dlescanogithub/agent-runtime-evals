@@ -20,6 +20,11 @@ from agent_runtime.jsonutil import as_dict, as_int, as_str, dumps, loads
 from agent_runtime.logging_setup import log
 from agent_runtime.pricing import cost_micro_usd
 from agent_runtime.providers.base import LLMProvider
+from agent_runtime.refund_claims import (
+    refund_effect_matches,
+    stated_refund_cents,
+    text_claims_refund_done,
+)
 from agent_runtime.store import NewStep, SQLiteStore
 from agent_runtime.tools import ToolService, safe_args
 from agent_runtime.trace import Tracer
@@ -417,9 +422,13 @@ class AgentRunner:
             output = _parse_final(content)
         except ValidationError as exc:
             return self._fail(run, "invalid_final_output", str(exc))
-        # A model can say the refund happened without calling send_refund.
+        # A model can say the refund happened without calling send_refund,
+        # including inside an email the final outcome does not mention.
         # That used to close the run as completed. It is a failed review.
-        claim = _refund_claim_error(self._store.list_steps(run.id), output)
+        steps = self._store.list_steps(run.id)
+        claim = _refund_claim_error(steps, output)
+        if claim is None:
+            claim = _customer_text_claim_error(steps, output)
         if claim is not None:
             saved = self._store.save_run(
                 replace(run, status="failed", output_json=dumps(output), error=claim)
@@ -543,6 +552,44 @@ def _refund_claim_error(steps: list[StepRecord], output: dict[str, object]) -> s
         "needs_review: outcome refund_completed but no executed send_refund "
         "effect matches this order and amount"
     )
+
+
+def _customer_text_claim_error(steps: list[StepRecord], output: dict[str, object]) -> str | None:
+    """A summary or a sent email must not announce a refund that did not execute."""
+
+    texts: list[tuple[str, str]] = []
+    summary = output.get("customer_summary")
+    order_id = output.get("order_id")
+    if isinstance(summary, str) and isinstance(order_id, str):
+        texts.append((order_id, summary))
+    for step in steps:
+        if step.kind != "tool" or step.name != "send_email" or step.output_json is None:
+            continue
+        try:
+            payload = as_dict(loads(step.output_json))
+            wrapper = as_dict(loads(step.input_json))
+            arguments = as_dict(wrapper.get("arguments"))
+        except ValidationError:
+            continue
+        if payload.get("ok") is not True:
+            continue
+        sent_order = arguments.get("order_id")
+        if not isinstance(sent_order, str):
+            continue
+        subject = arguments.get("subject")
+        body = arguments.get("body")
+        text = " ".join(part for part in (subject, body) if isinstance(part, str))
+        texts.append((sent_order, text))
+    message = (
+        "needs_review: customer was told a refund was processed or issued "
+        "but no executed send_refund matches this order and amount"
+    )
+    for claimed_order, text in texts:
+        if not text_claims_refund_done(text):
+            continue
+        if not refund_effect_matches(steps, claimed_order, stated_refund_cents(text)):
+            return message
+    return None
 
 
 def _parse_final(content: str) -> dict[str, object]:

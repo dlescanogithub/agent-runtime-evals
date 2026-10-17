@@ -19,6 +19,14 @@
   include descriptions. `edge_human_reject` rejects at the gate.
 - Stub suite after these edits: 23/23, 38886 / 1902 tokens, 6937 micro-USD.
   Demo: 2408 / 124 tokens, 433 micro-USD. Live rerun numbers are not filled in.
+- Live report percentiles are LLM calls only. Tool-step latency is separate.
+- `eval-live` configures JSON logs so each hosted call emits `model_call`.
+- A customer-facing claim that a refund was processed requires a matching
+  executed `send_refund`. Amount <= 0 is rejected before the gate.
+- `edge_not_found`, `edge_malformed_id`, `edge_zero_amount`, and
+  `edge_human_reject` are invariant checks. Happy-path trajectories stay
+  exact. The README quotes the 2026-10-17 live sample on commit `7b0aa2e`.
+  That sample is not a rerun of these fixes.
 - README section "Use cases, governance and business strategy": the Lumen
   Desk refund agent is the only implemented case. Ticket triage, scheduling,
   a personal-finance assistant, and a personal inbox assistant are design

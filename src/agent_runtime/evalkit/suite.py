@@ -19,9 +19,16 @@ from agent_runtime.catalog import OrderCatalog
 from agent_runtime.config import Config
 from agent_runtime.errors import AgentRuntimeError, ConfigError, SpendCapError
 from agent_runtime.evalkit.cases import EvalCase, dump_cassette, load_cases, load_cassette
-from agent_runtime.evalkit.checks import adversarial_failures, effect_executed, score_checks
+from agent_runtime.evalkit.checks import (
+    INVARIANT_EDGE_IDS,
+    adversarial_failures,
+    edge_invariant_failures,
+    effect_executed,
+    score_checks,
+)
 from agent_runtime.gate import EXTERNAL_EFFECT_TOOLS
 from agent_runtime.jsonutil import as_dict, as_str, loads
+from agent_runtime.logging_setup import configure
 from agent_runtime.pricing import MODEL_NAME
 from agent_runtime.providers.base import LLMProvider
 from agent_runtime.providers.cassette import CassetteProvider
@@ -46,6 +53,7 @@ class CaseResult:
     tokens_out: int
     cost_micro_usd: int
     latency_us: list[int]
+    tool_latency_us: list[int]
     tools: list[str]
 
 
@@ -60,6 +68,8 @@ class SuiteReport:
     cost_micro_usd: int
     latency_us_p50: int
     latency_us_p95: int
+    tool_latency_us_p50: int
+    tool_latency_us_p95: int
     check_mean: float
     check_threshold: float
     by_category: dict[str, dict[str, int]]
@@ -148,6 +158,9 @@ def run_live(
             "LLM_BASE_URL, LLM_MODEL, a price table, and MAX_LIVE_SPEND_USD. "
             "CI does not set these. No request was sent."
         )
+    # Per-call lines are JSON on stderr. Without this, the runbook's model_call
+    # log is dropped because the root logger has no handler.
+    configure(config.log_level)
     cassette_dir = live_cassette_dir(environ)
     refuse_committed_cassettes(cassette_dir, evals_dir)
     if provider is None:
@@ -211,11 +224,18 @@ def write_live_report(report: SuiteReport, path: Path, model: str, price_date: s
         "failed": report.failed,
         "check_mean": report.check_mean,
         "check_threshold": report.check_threshold,
+        "latency_scope": "llm_calls",
         "latency_us_p50": report.latency_us_p50,
         "latency_us_p95": report.latency_us_p95,
         "measured_at": datetime.now(UTC).strftime("%Y-%m-%d"),
         "model": model,
-        "note": "One live run. Not a success rate. Fill the README placeholder from this file.",
+        "note": (
+            "One live run. Not a success rate. "
+            "latency_us_p50 and latency_us_p95 are LLM calls only. "
+            "tool_latency_us_p50 and tool_latency_us_p95 are tool steps."
+        ),
+        "tool_latency_us_p50": report.tool_latency_us_p50,
+        "tool_latency_us_p95": report.tool_latency_us_p95,
         "passed": report.passed,
         "price_date": price_date,
         "provider": "live",
@@ -265,6 +285,7 @@ def _live_error(case: EvalCase, message: str) -> CaseResult:
         tokens_out=0,
         cost_micro_usd=0,
         latency_us=[],
+        tool_latency_us=[],
         tools=[],
     )
 
@@ -285,10 +306,13 @@ def write_report(report: SuiteReport, path: Path) -> None:
         "failed": report.failed,
         "check_mean": report.check_mean,
         "check_threshold": report.check_threshold,
+        "latency_scope": "llm_calls",
         "latency_us_p50": report.latency_us_p50,
         "latency_us_p95": report.latency_us_p95,
         "measured_at": datetime.now(UTC).strftime("%Y-%m-%d"),
         "model": MODEL_NAME,
+        "tool_latency_us_p50": report.tool_latency_us_p50,
+        "tool_latency_us_p95": report.tool_latency_us_p95,
         "passed": report.passed,
         "provider": "cassette",
         "tokens_in": report.tokens_in,
@@ -332,7 +356,12 @@ def _run_case(
         tokens_in=outcome.tokens_in,
         tokens_out=outcome.tokens_out,
         cost_micro_usd=outcome.spent_micro_usd,
-        latency_us=[step.latency_us for step in steps if step.latency_us is not None],
+        latency_us=[
+            step.latency_us for step in steps if step.kind == "llm" and step.latency_us is not None
+        ],
+        tool_latency_us=[
+            step.latency_us for step in steps if step.kind == "tool" and step.latency_us is not None
+        ],
         tools=tools,
     )
 
@@ -363,6 +392,8 @@ def _deterministic(
 ) -> list[str]:
     if case.category == "adversarial":
         return adversarial_failures(case, outcome, steps, gated)
+    if case.id in INVARIANT_EDGE_IDS:
+        return edge_invariant_failures(case, outcome, steps, gated)
     failures: list[str] = []
     tools = [step.name for step in steps if step.kind == "tool"]
     if tuple(tools) != case.tools:
@@ -406,6 +437,7 @@ def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteRep
     tokens_out = sum(result.tokens_out for result in results)
     cost = sum(result.cost_micro_usd for result in results)
     latencies = [value for result in results for value in result.latency_us]
+    tool_latencies = [value for result in results for value in result.tool_latency_us]
     scores = [result.check_score for result in results]
     mean = sum(scores) / len(scores) if scores else 0.0
     by_category: dict[str, dict[str, int]] = {}
@@ -424,7 +456,9 @@ def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteRep
         (
             f"tokens_in={tokens_in} tokens_out={tokens_out} cost_micro_usd={cost} "
             f"latency_us_p50={_percentile(latencies, 50)} "
-            f"latency_us_p95={_percentile(latencies, 95)}"
+            f"latency_us_p95={_percentile(latencies, 95)} (llm calls only) "
+            f"tool_latency_us_p50={_percentile(tool_latencies, 50)} "
+            f"tool_latency_us_p95={_percentile(tool_latencies, 95)} (tool steps)"
         ),
     ]
     for result in results:
@@ -444,6 +478,8 @@ def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteRep
         cost_micro_usd=cost,
         latency_us_p50=_percentile(latencies, 50),
         latency_us_p95=_percentile(latencies, 95),
+        tool_latency_us_p50=_percentile(tool_latencies, 50),
+        tool_latency_us_p95=_percentile(tool_latencies, 95),
         check_mean=mean,
         check_threshold=threshold,
         by_category=by_category,

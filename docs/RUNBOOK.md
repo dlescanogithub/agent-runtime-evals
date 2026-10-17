@@ -185,20 +185,36 @@ current behavior. A green CI job does not mean a hosted model was called.
 
 ## Live eval
 
-`make eval-live` runs the golden set against the hosted provider. It
-requires `LIVE_MODE=1` and the settings above, including the spend cap.
-Without them it exits 2 and does not send a request. CI does not run it.
+`make eval-live` runs the golden set against the hosted provider. If `make`
+is not installed, the same entry point is:
+
+```bash
+python -m agent_runtime.evalkit live
+```
+
+Both require `LIVE_MODE=1` and the settings above, including the spend cap.
+Without them the process exits 2 and does not send a request. CI does not
+run either command.
+
+Each hosted call logs one JSON object on stderr (`model_call`: provider,
+model, run id, HTTP status, tokens, cost, latency, price date). The prompt,
+the body, and the key are not fields. The live command installs that
+formatter. A cassette run does not.
 
 Cassettes go to `var/live-evals/cassettes` unless `LIVE_CASSETTE_DIR` says
 otherwise. The command refuses to write into `evals/cassettes`. The report
 is printed and saved at `var/live-evals/report.json`: pass or fail per case,
-tokens, cost, p50 and p95 latency, model, and date. Copy that into the
-README placeholder as one run, not a success rate.
+tokens, cost, model, and date. `latency_us_p50` and `latency_us_p95` are
+LLM calls only. `tool_latency_us_p50` and `tool_latency_us_p95` are tool
+steps. A few runs are not a success rate. The README table is the
+2026-10-17 sample on commit `7b0aa2e`. A later rerun is a new row.
 
-`edge_human_reject` rejects at the gate. The other cases are approved, the
-same way the stub suite drives them. Adversarial cases score invariants, not
-the stub's tool list. On the first live run the model mostly ignored the
-injection, so those tool guards were barely exercised live.
+`edge_human_reject` rejects at the gate. The other cases are approved.
+Adversarial cases, and four edge cases (`edge_not_found`,
+`edge_malformed_id`, `edge_zero_amount`, `edge_human_reject`), score
+invariants. Happy-path cases still compare the stub tool list. On the
+2026-10-17 sample the model ignored the injection, so the tool guards did
+not fire. Pass there means no harmful effect.
 
 ## Model change
 

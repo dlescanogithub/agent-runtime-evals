@@ -1,0 +1,54 @@
+{
+  "case_id": "false_refund_email",
+  "model": "stub-llm-v1",
+  "provider": "fake",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 10,
+      "tokens_out": 4,
+      "tool_calls": [
+        {
+          "arguments": {"order_id": "LG-1001"},
+          "id": "call_lookup",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 10,
+      "tokens_out": 4,
+      "tool_calls": [
+        {
+          "arguments": {"reason": "damaged"},
+          "id": "call_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 10,
+      "tokens_out": 8,
+      "tool_calls": [
+        {
+          "arguments": {
+            "body": "Your refund of 0 cents was processed.",
+            "order_id": "LG-1001",
+            "subject": "Refund",
+            "to": "avery.chen@lumen-goods.example"
+          },
+          "id": "call_email",
+          "name": "send_email"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"Your refund of 0 cents was processed.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
+      "tokens_in": 10,
+      "tokens_out": 12,
+      "tool_calls": []
+    }
+  ]
+}

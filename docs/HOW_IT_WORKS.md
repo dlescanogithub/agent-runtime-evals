@@ -263,11 +263,13 @@ no está en el CI. Regrabar cassettes sería un diff revisado, y hoy nadie
 lo hace contra un modelo pago. Una corrida live, si la pagan, va aparte
 y con tope.
 
-**¿Por qué la latencia es de microsegundos?**
+**¿Por qué la latencia del stub es de microsegundos?**
 Porque es el tiempo adentro del proceso, con un stub. No es un modelo en
-red. El 2026-10-17 el p50 fue 1 µs. El p95 se mueve entre corridas y no
-es un número del gate. Si lo comparás con un SLO de voz, estás mezclando
-cosas.
+red. El reporte separa las llamadas al modelo (`latency_us_p50` /
+`latency_us_p95`) de los pasos de tools. En el stub las dos quedan en
+microsegundos y no son un SLO. La latencia live de las llamadas al modelo,
+en segundos, está en el README y es de una muestra del 2026-10-17, no una
+tasa de éxito.
 
 ### De Deployment Strategist
 
@@ -297,8 +299,9 @@ juez y un humano, porque no hay un juez: el checker es código.
 **¿Qué pasa si cambian el modelo?**
 El CI de este repo no se entera. Solo ve cassettes. Si quieren probar el
 modelo nuevo, es una corrida aparte, con tope de gasto, y un diff de
-cassettes que mira alguien que no lo escribió. Eso es trabajo futuro: acá
-no hay una corrida live. `main` puede exigir el job `ci`. Ese check se
+cassettes que mira alguien que no lo escribió. Hubo una muestra live el
+2026-10-17, citada en el README como unas pocas corridas, no como tasa de
+éxito. El CI sigue sin llamarla. `main` puede exigir el job `ci`. Ese check se
 configura en GitHub. El repo no lo enciende solo. El rollback es deployar
 la revisión anterior y rechazar lo que quedó esperando. Lo que ya se pagó
 lo revierte una persona en el sistema de pedidos. El agente no tiene undo

@@ -15,6 +15,11 @@ from agent_runtime.catalog import OrderCatalog
 from agent_runtime.errors import ValidationError
 from agent_runtime.jsonutil import as_dict, dumps, loads
 from agent_runtime.policy import MAX_REFUND_CENTS, WINDOWS_DAYS, OrderView, decide
+from agent_runtime.refund_claims import (
+    refund_effect_matches,
+    stated_refund_cents,
+    text_claims_refund_done,
+)
 from agent_runtime.store import SQLiteStore
 
 ORDER_ID_RE = re.compile(r"^LG-[0-9]{4}$")
@@ -73,7 +78,7 @@ class ToolService:
                 return error
             return self._refund_guards(run_id, arguments)
         if name == "send_email":
-            error = self._validate_send_email(arguments)
+            error = self._validate_send_email(arguments, run_id)
             if error is not None:
                 return error
             return self._ticket_guard(run_id, arguments)
@@ -95,6 +100,9 @@ class ToolService:
             guard = self._ticket_guard(run_id, arguments)
             if guard is not None:
                 return guard
+            claim = self._false_refund_email(arguments, run_id)
+            if claim is not None:
+                return claim
             return self._send_email(arguments)
         return fail("unknown_tool", f"Unknown tool: {name}")
 
@@ -192,7 +200,36 @@ class ToolService:
         # No ledger change. The effect row is the record that we would have sent.
         return self._store.commit_effect(key, "send_email", output, None, None)
 
-    def _validate_send_email(self, arguments: dict[str, object]) -> dict[str, object] | None:
+    def _false_refund_email(
+        self, arguments: dict[str, object], run_id: str | None
+    ) -> dict[str, object] | None:
+        """Block an email that says a refund happened when it did not."""
+
+        subject = arguments.get("subject")
+        body = arguments.get("body")
+        text = " ".join(part for part in (subject, body) if isinstance(part, str))
+        if not text_claims_refund_done(text):
+            return None
+        order_id = arguments.get("order_id")
+        if not isinstance(order_id, str) or run_id is None:
+            return fail(
+                "false_refund_claim",
+                "The email says a refund was processed or issued, and no executed "
+                "send_refund matches this order and amount.",
+            )
+        amount = stated_refund_cents(text)
+        steps = self._store.list_steps(run_id)
+        if refund_effect_matches(steps, order_id, amount):
+            return None
+        return fail(
+            "false_refund_claim",
+            "The email says a refund was processed or issued, and no executed "
+            "send_refund matches this order and amount.",
+        )
+
+    def _validate_send_email(
+        self, arguments: dict[str, object], run_id: str | None
+    ) -> dict[str, object] | None:
         order_id = arguments.get("order_id")
         to = arguments.get("to")
         subject = arguments.get("subject")
@@ -211,6 +248,9 @@ class ToolService:
         leaked = [match for match in FOREIGN_ORDER_RE.findall(body) if match != order_id]
         if leaked:
             return fail("foreign_order_in_body", "The email body mentions another order.")
+        claim = self._false_refund_email(arguments, run_id)
+        if claim is not None:
+            return claim
         order = self._catalog.get(order_id)
         if order is not None and to != order.email:
             # Do not ask a reviewer to approve an email to the wrong person.
@@ -308,6 +348,8 @@ def _validate_send_refund(arguments: dict[str, object]) -> dict[str, object] | N
         return fail("invalid_order_id", "order_id must be LG- and four digits.")
     if isinstance(amount, bool) or not isinstance(amount, int):
         return fail("invalid_amount", "amount_cents must be an integer.")
+    # Zero and negative amounts are refused here, before the human gate.
+    # policy.decide refuses them again if execute is called directly.
     if not 1 <= amount <= MAX_REFUND_CENTS:
         return fail("invalid_amount", f"amount_cents must be between 1 and {MAX_REFUND_CENTS}.")
     if not isinstance(reason, str) or REASON_RE.fullmatch(reason) is None:

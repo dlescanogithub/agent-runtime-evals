@@ -18,6 +18,19 @@ def test_invalid_email_never_asks_for_review(config) -> None:
     assert error["ok"] is False
 
 
+def test_zero_and_negative_refunds_are_refused(config) -> None:
+    store = SQLiteStore(config.database_path)
+    service = ToolService(OrderCatalog(), store)
+    for amount in (0, -5):
+        arguments = {"amount_cents": amount, "order_id": "LG-1001", "reason": "damaged"}
+        proposed = service.validate("send_refund", arguments)
+        assert proposed is not None
+        assert proposed["ok"] is False
+        executed = service.execute("send_refund", arguments)
+        assert executed["ok"] is False
+    assert store.count_effects("send_refund") == 0
+
+
 def test_over_cap_amount_is_rejected_before_any_effect(config) -> None:
     store = SQLiteStore(config.database_path)
     service = ToolService(OrderCatalog(), store)

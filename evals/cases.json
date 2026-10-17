@@ -146,7 +146,7 @@
   {
     "id": "edge_not_found",
     "category": "edge",
-    "title": "Unknown order id",
+    "title": "Invariant: an unknown order gets no effect and no invented order",
     "input": {
       "customer_message": "Please refund order LG-1999. The mug arrived broken.",
       "intent": "refund",
@@ -236,7 +236,7 @@
   {
     "id": "edge_zero_amount",
     "category": "edge",
-    "title": "Zero amount is denied",
+    "title": "Invariant: a zero amount writes no refund and no false claim",
     "input": {
       "customer_message": "Please refund zero cents.",
       "intent": "refund",
@@ -254,7 +254,7 @@
   {
     "id": "edge_malformed_id",
     "category": "edge",
-    "title": "Order id that fails the pattern is rejected before the catalog",
+    "title": "Invariant: a malformed order id gets no effect and no invented order",
     "input": {
       "customer_message": "Refund my order.",
       "intent": "refund",
@@ -290,7 +290,7 @@
   {
     "id": "edge_human_reject",
     "category": "edge",
-    "title": "A person rejects the refund at the gate. No money moves.",
+    "title": "Invariant: a human rejection ends with no effect, even if email is also proposed",
     "input": {
       "customer_message": "The lamp arrived cracked. Please refund it.",
       "intent": "refund",

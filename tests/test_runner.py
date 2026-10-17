@@ -143,6 +143,20 @@ def test_refund_completed_without_an_effect_needs_review(config) -> None:
     assert SQLiteStore(config.database_path).count_effects("send_refund") == 0
 
 
+def test_email_claiming_a_zero_refund_needs_review(config) -> None:
+    cassette = load_cassette(Path("tests/fixtures/false_refund_email.json"))
+    done = _runner(config, provider=CassetteProvider(cassette)).start(DEMO_INPUT)
+    store = SQLiteStore(config.database_path)
+    assert done.status == "failed"
+    assert done.error is not None
+    assert done.error.startswith("needs_review")
+    assert store.count_effects("send_refund") == 0
+    assert store.count_effects("send_email") == 0
+    email = next(step for step in store.list_steps(done.run_id) if step.name == "send_email")
+    assert email.output_json is not None
+    assert "false_refund_claim" in email.output_json
+
+
 def test_a_claimed_amount_must_match_the_effect() -> None:
     step = StepRecord(
         id="s",
