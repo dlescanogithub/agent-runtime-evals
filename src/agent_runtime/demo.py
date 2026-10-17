@@ -42,10 +42,7 @@ class DemoSummary:
 def demo_config(base_dir: Path) -> Config:
     return Config(
         llm_provider="fake",
-        openai_api_key=None,
-        openai_base_url="https://api.openai.com/v1",
-        openai_model="gpt-4.1-mini",
-        openai_timeout_s=30,
+        live=None,
         database_path=base_dir / "runtime.sqlite",
         trace_dir=base_dir / "traces",
         evals_dir=Path("evals"),

@@ -41,6 +41,9 @@ class Completion:
     tool_calls: tuple[ToolCall, ...]
     tokens_in: int
     tokens_out: int
+    # Set by a hosted provider from the operator's price table. The stub
+    # leaves this empty so the runner keeps using the synthetic stub price.
+    cost_micro_usd: int | None = None
 
 
 @dataclass(frozen=True)
@@ -55,6 +58,7 @@ class Message:
 class CompletionRequest:
     messages: tuple[Message, ...]
     tool_names: tuple[str, ...]
+    run_id: str = ""
 
 
 @dataclass(frozen=True)

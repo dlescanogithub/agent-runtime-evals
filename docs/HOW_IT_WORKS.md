@@ -34,9 +34,10 @@ Pensalo como cajas con una sola responsabilidad.
 | `demo.py` | Cuenta la historia: se cae, retoma, aprueba | Borra su propia base para que la historia se pueda repetir |
 | `runner.py` | El loop. En cada vuelta hace una sola cosa | No esconde estado en memoria |
 | `history.py` | Rearma el transcript leyendo los steps | No es otra fuente de verdad |
-| `providers/fake.py` | El "modelo" local. No lee `customer_message` | No llama a la red |
+| `providers/fake.py` | El modelo local. Lee `customer_message` | No llama a la red |
 | `providers/cassette.py` | Repite respuestas grabadas | No decide nada nuevo |
-| `providers/openai_compatible.py` | Un POST HTTP, por si algún día hay un modelo de verdad | No se usa en CI |
+| `providers/openai_compatible.py` | POST HTTP al formato de OpenAI. Sirve para xAI u OpenAI | Apagado salvo `LIVE_MODE=1`. CI no lo usa. No está probado contra la API real |
+| `providers/anthropic.py` | Adaptador fino al API Messages de Anthropic | Las mismas reglas: opt-in, tope de gasto, sin probar contra la API real |
 | `tools.py` | Valida argumentos y ejecuta las cuatro tools | No aprueba |
 | `gate.py` | La lista de tools que frenan: `send_refund`, `send_email` | No es un prompt |
 | `policy.py` | La regla de negocio, pura: mismos datos, misma decisión | No toca la base |

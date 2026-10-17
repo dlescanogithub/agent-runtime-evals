@@ -11,10 +11,7 @@ from agent_runtime.config import Config
 def config(tmp_path: Path) -> Config:
     return Config(
         llm_provider="fake",
-        openai_api_key=None,
-        openai_base_url="https://api.openai.com/v1",
-        openai_model="gpt-4.1-mini",
-        openai_timeout_s=5,
+        live=None,
         database_path=tmp_path / "runtime.sqlite",
         trace_dir=tmp_path / "traces",
         evals_dir=Path("evals"),

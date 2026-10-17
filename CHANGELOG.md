@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Optional hosted providers, off unless `LIVE_MODE=1`: an OpenAI-compatible
+  client for xAI and OpenAI, and a thin Anthropic Messages adapter. Key,
+  base URL, model, and prices come only from the environment. No vendor
+  price is shipped. `MAX_LIVE_SPEND_USD` caps each run and the process.
+- The hosted client is untested against the real APIs. CI still runs the
+  stub and the cassettes only.
+
 ## 0.1.0 — 2026-10-17
 
 First MVP of the Lumen Desk runtime.

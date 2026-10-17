@@ -36,7 +36,7 @@ row and does not add the amount again.
 | `cli.py`, `api.py`, `demo.py` | How a person starts, approves, rejects, and resumes |
 | `runner.py` | One iteration does one thing. The ledger is the cursor. |
 | `history.py` | Rebuilds the transcript from steps |
-| `providers/` | `fake` (default), `cassette` (evals), `openai_compatible` (optional HTTP) |
+| `providers/` | `fake` (default, CI), `cassette` (evals), `openai_compatible` (xAI and OpenAI, off unless `LIVE_MODE=1`), `anthropic` (thin adapter, same gate) |
 | `tools.py` | Argument checks and the four tools |
 | `gate.py` | Which tool names stop for a person |
 | `policy.py` | Pure refund rules |

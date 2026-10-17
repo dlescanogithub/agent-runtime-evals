@@ -5,9 +5,10 @@ This is a local runtime with a human gate. It is not a hosted service.
 ## Secrets
 
 - No API keys, tokens, or private keys belong in the repo.
-- `.env.example` lists variables and leaves `OPENAI_API_KEY` empty.
+- `.env.example` lists variables and leaves `LLM_API_KEY` empty. Live mode
+  is off unless `LIVE_MODE=1`. CI does not set either one.
 - The process reads configuration from the environment. The fake provider
-  is the default and needs no key.
+  is the default and needs no key. A hosted key is never a default.
 - CI runs two scanners: `python -m agent_runtime.secretscan` and gitleaks
   8.30.1. The gitleaks tarball is checked against a pinned SHA-256 before
   it runs. Either scanner failing fails the `ci` job.

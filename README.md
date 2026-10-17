@@ -3,7 +3,9 @@
 **Stub + cassettes: this tests the runtime and its controls, not the model.**
 
 CI replays recorded stub responses. It does not call a model, and it does not
-fail when a model changes. A live model and an LLM judge are future work.
+fail when a model changes. An optional hosted client (xAI, OpenAI, or a thin
+Anthropic adapter) stays off unless `LIVE_MODE=1`, and it has not been run
+against the real API. An LLM judge is future work.
 
 ## Demo GIF
 
@@ -89,8 +91,9 @@ flowchart LR
   caller["CLI or localhost API"] --> runner["Agent loop"]
   runner --> store["SQLite runs, steps, effects"]
   runner --> model["LLM provider"]
-  model --> fake["Fake provider default"]
-  model --> http["OpenAI-compatible optional"]
+  model --> fake["Fake provider default, used in CI"]
+  model --> http["xAI or OpenAI, off unless LIVE_MODE=1"]
+  model --> anthropic["Anthropic adapter, off unless LIVE_MODE=1"]
   runner --> tools["Typed tools"]
   tools --> reads["lookup_order, lookup_policy"]
   tools --> gate{"External effect?"}
@@ -182,7 +185,7 @@ re-record.
 
 What it does not do:
 
-- It does not call a paid model unless `LLM_PROVIDER=openai` and `OPENAI_API_KEY` are set in the environment. CI never sets them.
+- It does not call a paid model unless `LIVE_MODE=1` and the hosted settings are in the environment. CI never sets them. That path has not been run against xAI, OpenAI, or Anthropic.
 - The HTTP API requires `Authorization: Bearer` from `API_TOKEN`, compared in constant time. `GET /health` is open. This is not the customer's identity provider.
 - It does not export OpenTelemetry. Traces are local JSONL.
 - It does not run an LLM judge, and it does not report agreement with a human panel.
@@ -212,14 +215,18 @@ docker build -t lumen-desk .
 docker run --rm lumen-desk
 ```
 
-A live model is optional and is not used by CI. Set `LLM_PROVIDER=openai`
-and `OPENAI_API_KEY` in the environment. See [.env.example](.env.example).
-Do not commit a `.env` file.
+A live model is optional and is not used by CI. It stays off unless
+`LIVE_MODE=1`. The key is `LLM_API_KEY`, loaded as a secret in the shell,
+never committed. Prices are `LLM_INPUT_USD_PER_MILLION` and
+`LLM_OUTPUT_USD_PER_MILLION`, copied from the provider's page, plus
+`MAX_LIVE_SPEND_USD`. See [.env.example](.env.example),
+[docs/COST.md](docs/COST.md), and [docs/RUNBOOK.md](docs/RUNBOOK.md).
+This client has not been run against the real API. Do not commit a `.env` file.
 
 ## Next steps
 
 - Postgres worker with `FOR UPDATE SKIP LOCKED`, still behind the same step table.
-- A live model behind the provider interface, outside CI, with a spend cap. Re-recording cassettes would be a reviewed diff. This repo does not do that run.
+- Diego running the hosted client himself, with his own key and a price copied from the provider's page. The client is in the tree and off by default. It is untested against the real API. Re-recording cassettes would be a reviewed diff. This repo does not do that run.
 - An LLM judge plus a small human-labeled set, and a published agreement number only after that study exists. The checker in CI stays code.
 - OpenTelemetry export of the same trace fields.
 - The customer's identity provider in front of the bearer token.

@@ -126,17 +126,74 @@ A bad dependency (order system down):
 There is no feature flag service in this MVP. Rollback is "the previous git
 revision".
 
+## Enable live mode
+
+Live mode is off. CI runs the stub and the cassettes only. The hosted
+client in this repo has **not** been called against the real xAI, OpenAI,
+or Anthropic API. Diego is the person who would do that, on a machine that
+is not CI, after he loads a key as a secret.
+
+Do not put the key in the repo, in a cassette, in a prompt, in a log, or in
+the workflow file. `.env.example` lists the names and leaves the values
+empty.
+
+xAI (Grok) is the OpenAI-compatible provider. The shell below is the shape,
+not a command that contains a key. Replace the secret-manager line with the
+one your store actually uses.
+
+```bash
+# This process only. The key never lands in a file in the repo.
+export LLM_API_KEY="$(your-secret-manager read lumen-xai-key)"
+export LIVE_MODE=1
+export LLM_PROVIDER=xai
+export LLM_BASE_URL=https://api.x.ai/v1
+export LLM_MODEL="<model id from the xAI docs>"
+export LLM_PRICE_DATE="<YYYY-MM-DD of the pricing page>"
+export LLM_INPUT_USD_PER_MILLION="<USD per 1M input tokens, from that page>"
+export LLM_OUTPUT_USD_PER_MILLION="<USD per 1M output tokens, from that page>"
+export MAX_LIVE_SPEND_USD="1.00"
+```
+
+`LIVE_MODE` must be the exact value `1`. `true` leaves it off, and a hosted
+provider without `1` refuses to start. `LLM_PROVIDER=fake` cannot be
+combined with live mode.
+
+OpenAI uses the same client with `LLM_PROVIDER=openai` and
+`LLM_BASE_URL=https://api.openai.com/v1`. Anthropic is a thin adapter:
+`LLM_PROVIDER=anthropic` and `LLM_BASE_URL=https://api.anthropic.com`
+(the client appends `/v1/messages` and sends `anthropic-version: 2023-06-01`).
+Prices for those providers come from their own pages. See
+[COST.md](COST.md). Do not copy the stub's synthetic price into these
+variables.
+
+What the cap does:
+
+- `MAX_LIVE_SPEND_USD` applies to each run and to the whole process.
+- A call that would cross either one raises a spend-cap error. The run
+  fails. The completion is not used, so no tool runs from it. The HTTP
+  request may already have been sent, so the provider may still bill those
+  tokens.
+- A second cap in the same process is a configuration error. Restart the
+  process to change it.
+- Logs are one JSON object per call: provider, model, run id, HTTP status,
+  tokens, cost, latency, and `LLM_PRICE_DATE`. They do not include the
+  prompt, the response body, or the key.
+
+Until Diego runs the commands above against the real API, treat live mode
+as untested. A green CI job does not mean a hosted model was called.
+
 ## Model change
 
 1. The cassette gate will not notice the new model. A live run is a
-   separate job, under a spend cap the operator sets. This repo does not
-   do that run for you.
+   separate job, under `MAX_LIVE_SPEND_USD`. This repo does not do that
+   run for you, and it has not been run against the real API.
 2. If you re-record cassettes, review the diff. A trajectory change is a
    product change. CI keeps passing the old cassettes until that diff lands.
 3. Someone who did not write the diff merges it. `main` requires the CI
    jobs listed in SECURITY.md. Those checks are a GitHub setting. This
    repository does not turn them on.
-4. Watch `budget_exceeded`, queue age, and rejections for the first day.
+4. Watch `budget_exceeded`, spend-cap failures, queue age, and rejections
+   for the first day.
 
 ## Handoff checklist
 

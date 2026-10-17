@@ -1,100 +1,84 @@
-"""Thin client for any API that speaks the OpenAI chat-completions shape.
+"""OpenAI-compatible chat completions over stdlib HTTP.
 
-Not used by tests, the demo, or CI. There is no SDK dependency: the standard
-library sends one HTTP POST. The API key is a header and is never logged.
+xAI (Grok) and OpenAI both speak this shape. The provider name, base URL,
+model, and API key come from the environment. This module is not used by
+CI. It has not been run against the real xAI or OpenAI APIs.
 """
 
 from __future__ import annotations
 
-import urllib.error
-import urllib.request
-from typing import Protocol
-
-from agent_runtime.errors import PermanentError, TransientError, ValidationError
+from agent_runtime.config import LiveSettings
+from agent_runtime.errors import PermanentError, ValidationError
 from agent_runtime.jsonutil import as_dict, as_int, as_list, as_str, dumps, loads
 from agent_runtime.pricing import estimate_tokens
 from agent_runtime.prompts import TOOL_NAMES
+from agent_runtime.providers.http import Transport, read_json
+from agent_runtime.providers.live_call import LiveCall
+from agent_runtime.providers.spend import SpendLedger
+from agent_runtime.providers.tool_schema import parameter_object
 from agent_runtime.types import Completion, CompletionRequest, Message, ToolCall
-
-_RETRYABLE = frozenset({408, 409, 429, 500, 502, 503, 504})
-
-
-class HttpResponse:
-    def __init__(self, status: int, body: bytes) -> None:
-        self.status = status
-        self.body = body
-
-
-class Transport(Protocol):
-    def post(
-        self, url: str, headers: dict[str, str], body: bytes, timeout_s: float
-    ) -> HttpResponse:
-        """Send one POST. Raise TransientError when the network itself fails."""
-
-
-class UrllibTransport:
-    def post(
-        self, url: str, headers: dict[str, str], body: bytes, timeout_s: float
-    ) -> HttpResponse:
-        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
-        try:
-            with urllib.request.urlopen(request, timeout=timeout_s) as response:
-                raw = response.read()
-                status = response.status
-                if not isinstance(status, int):
-                    raise PermanentError("response status was not an integer")
-                return HttpResponse(status=status, body=raw)
-        except urllib.error.HTTPError as exc:
-            return HttpResponse(status=exc.code, body=exc.read())
-        except urllib.error.URLError as exc:
-            raise TransientError("model endpoint was unreachable") from exc
 
 
 class OpenAICompatibleProvider:
-    name = "openai"
+    name: str
 
     def __init__(
         self,
-        api_key: str,
-        base_url: str,
-        model: str,
-        timeout_s: float,
+        *,
+        name: str,
+        settings: LiveSettings,
         transport: Transport,
+        ledger: SpendLedger,
     ) -> None:
-        self._api_key = api_key
-        self._base_url = base_url.rstrip("/")
-        self._model = model
-        self._timeout_s = timeout_s
+        self.name = name
+        self._settings = settings
         self._transport = transport
+        self._call = LiveCall(
+            provider=name,
+            model=settings.model,
+            price_date=settings.price_date,
+            input_micro_usd_per_million=settings.input_micro_usd_per_million,
+            output_micro_usd_per_million=settings.output_micro_usd_per_million,
+            ledger=ledger,
+        )
 
     def complete(self, request: CompletionRequest) -> Completion:
-        body = dumps(_request_body(self._model, request))
-        headers = {
-            "Authorization": f"Bearer {self._api_key}",
-            "Content-Type": "application/json",
-        }
+        started = self._call.begin(request.run_id)
+        body = dumps(_request_body(self._settings, request)).encode("utf-8")
         response = self._transport.post(
-            f"{self._base_url}/chat/completions",
-            headers,
-            body.encode("utf-8"),
-            self._timeout_s,
+            f"{self._settings.base_url}/chat/completions",
+            {
+                "Authorization": f"Bearer {self._settings.api_key}",
+                "Content-Type": "application/json",
+            },
+            body,
+            self._settings.timeout_s,
         )
-        if response.status in _RETRYABLE:
-            raise TransientError(f"model endpoint returned HTTP {response.status}")
-        if response.status != 200:
-            raise PermanentError(f"model endpoint returned HTTP {response.status}")
-        try:
-            payload = as_dict(loads(response.body.decode("utf-8")))
-        except (UnicodeDecodeError, ValidationError) as exc:
-            raise PermanentError("model endpoint returned invalid JSON") from exc
-        return _parse_completion(payload)
+        payload = read_json(response)
+        content, calls, tokens_in, tokens_out = _parse_completion(payload)
+        cost = self._call.finish(request.run_id, response.status, tokens_in, tokens_out, started)
+        return Completion(
+            content=content,
+            tool_calls=tuple(calls),
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            cost_micro_usd=cost,
+        )
 
 
-def _request_body(model: str, request: CompletionRequest) -> dict[str, object]:
+def _request_body(settings: LiveSettings, request: CompletionRequest) -> dict[str, object]:
     return {
-        "model": model,
+        "model": settings.model,
+        "max_tokens": settings.max_output_tokens,
         "messages": [_wire_message(message) for message in request.messages],
-        "tools": [_tool_schema(name) for name in TOOL_NAMES if name in request.tool_names],
+        "tools": [
+            {
+                "type": "function",
+                "function": {"name": name, "parameters": parameter_object(name)},
+            }
+            for name in TOOL_NAMES
+            if name in request.tool_names
+        ],
     }
 
 
@@ -113,10 +97,7 @@ def _wire_message(message: Message) -> dict[str, object]:
                 {
                     "id": call.id,
                     "type": "function",
-                    "function": {
-                        "name": call.name,
-                        "arguments": dumps(call.arguments),
-                    },
+                    "function": {"name": call.name, "arguments": dumps(call.arguments)},
                 }
                 for call in message.tool_calls
             ],
@@ -124,45 +105,9 @@ def _wire_message(message: Message) -> dict[str, object]:
     return {"role": message.role, "content": message.content}
 
 
-def _tool_schema(name: str) -> dict[str, object]:
-    properties: dict[str, object]
-    required: list[str]
-    if name == "lookup_order":
-        properties = {"order_id": {"type": "string"}}
-        required = ["order_id"]
-    elif name == "lookup_policy":
-        properties = {"reason": {"type": "string"}}
-        required = ["reason"]
-    elif name == "send_refund":
-        properties = {
-            "order_id": {"type": "string"},
-            "amount_cents": {"type": "integer"},
-            "reason": {"type": "string"},
-        }
-        required = ["order_id", "amount_cents", "reason"]
-    else:
-        properties = {
-            "order_id": {"type": "string"},
-            "to": {"type": "string"},
-            "subject": {"type": "string"},
-            "body": {"type": "string"},
-        }
-        required = ["order_id", "to", "subject", "body"]
-    return {
-        "type": "function",
-        "function": {
-            "name": name,
-            "parameters": {
-                "type": "object",
-                "properties": properties,
-                "required": required,
-                "additionalProperties": False,
-            },
-        },
-    }
-
-
-def _parse_completion(payload: dict[str, object]) -> Completion:
+def _parse_completion(
+    payload: dict[str, object],
+) -> tuple[str | None, list[ToolCall], int, int]:
     choices = as_list(payload.get("choices"), "choices")
     if not choices:
         raise PermanentError("model response had no choices")
@@ -176,7 +121,10 @@ def _parse_completion(payload: dict[str, object]) -> Completion:
         for item in as_list(raw_calls, "tool_calls"):
             call = as_dict(item)
             function = as_dict(call.get("function"))
-            arguments = as_dict(loads(as_str(function.get("arguments"), "arguments")))
+            try:
+                arguments = as_dict(loads(as_str(function.get("arguments"), "arguments")))
+            except ValidationError as exc:
+                raise PermanentError("model tool arguments were not a JSON object") from exc
             calls.append(
                 ToolCall(
                     id=as_str(call.get("id"), "id"),
@@ -185,12 +133,7 @@ def _parse_completion(payload: dict[str, object]) -> Completion:
                 )
             )
     tokens_in, tokens_out = _usage(payload, content, calls)
-    return Completion(
-        content=content,
-        tool_calls=tuple(calls),
-        tokens_in=tokens_in,
-        tokens_out=tokens_out,
-    )
+    return content, calls, tokens_in, tokens_out
 
 
 def _usage(

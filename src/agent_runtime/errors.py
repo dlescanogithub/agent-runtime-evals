@@ -31,3 +31,7 @@ class TransientError(AgentRuntimeError):
 
 class PermanentError(AgentRuntimeError):
     """Do not retry. The call cannot succeed with the same inputs."""
+
+
+class SpendCapError(PermanentError):
+    """The live spend cap was hit. Do not retry, and do not use the completion."""

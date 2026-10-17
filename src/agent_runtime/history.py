@@ -12,7 +12,7 @@ from agent_runtime.prompts import SYSTEM_PROMPT, TOOL_NAMES
 from agent_runtime.types import CompletionRequest, Message, StepRecord, decode_completion
 
 
-def build_request(user_json: str, steps: list[StepRecord]) -> CompletionRequest:
+def build_request(user_json: str, steps: list[StepRecord], run_id: str = "") -> CompletionRequest:
     messages: list[Message] = [
         Message(role="system", content=SYSTEM_PROMPT),
         Message(role="user", content=user_json),
@@ -38,4 +38,4 @@ def build_request(user_json: str, steps: list[StepRecord]) -> CompletionRequest:
                     tool_call_id=as_str(payload.get("tool_call_id"), "tool_call_id"),
                 )
             )
-    return CompletionRequest(messages=tuple(messages), tool_names=TOOL_NAMES)
+    return CompletionRequest(messages=tuple(messages), tool_names=TOOL_NAMES, run_id=run_id)

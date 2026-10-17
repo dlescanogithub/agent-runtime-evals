@@ -20,13 +20,14 @@ recompute from the token totals and expect the same integer.
 
 Token estimate for the stub: about 4 characters per token. Stable, so
 cassettes do not drift. A real provider would use the usage field from the
-API. The optional client does that when `usage` is present.
+API. The optional client does that when `usage` is present. That client is off
+unless `LIVE_MODE=1`, and it has not been run against a real API.
 
 | Scenario | Model | Tokens in / out | Cost | Latency | Quality | Price date |
 |---|---|---|---|---|---|---|
 | Eval suite, 22 cases, cassette replay | stub-llm-v1 | 27749 / 1830 | 5226 micro-USD for the suite | p50 1 µs on 2026-10-17. p95 is in the report and is not a gate. | 22/22, checker mean 1.00 | Synthetic price, measured 2026-10-17 |
 | One damaged-lamp refund, `make demo`, including a simulated crash and two approvals | stub-llm-v1 | 1836 / 124 | 348 micro-USD | in-process, not broken out as an SLO | completed, amount 4200 cents, both effects gated | Synthetic price, measured 2026-10-17 |
-| Same refund on a hosted model | not run | not measured | not measured | not measured | not measured | Take the vendor page on the day you run it |
+| Same refund on a hosted model (xAI, OpenAI, or Anthropic) | not run | not measured | not measured | not measured | not measured | Not filled in. Copy the provider's page on the day you run it. This repo has not called the real API. |
 | Illustrative production day, 120 runs [EST] at USD 0.01 per run [EST] | unnamed | [EST] | USD 1.20 / day [EST] | [EST], not this repo | [EST] | Not a quote |
 
 Latency is the time inside this process, around each step. p50 on
@@ -38,11 +39,54 @@ Input tokens dominate because each model turn resends the transcript,
 including the system prompt. That is normal for a chat API. Five turns on
 the demo refund are why 1836 input tokens accompany 124 output tokens.
 
+## Live mode price table (empty on purpose)
+
+Live mode is off unless `LIVE_MODE=1`. CI does not set it. The numbers below
+are not in the repo because a guessed vendor price would be a lie. Diego
+fills them in the environment on the day he measures, from the provider's
+official page:
+
+| Provider | Where to copy the price | Base URL the client appends to |
+|---|---|---|
+| xAI (Grok), OpenAI-compatible | [docs.x.ai models](https://docs.x.ai/docs/models), or the models page linked from the xAI docs if that path moves | `https://api.x.ai/v1` plus `/chat/completions` |
+| OpenAI | [platform.openai.com pricing](https://platform.openai.com/docs/pricing) | `https://api.openai.com/v1` plus `/chat/completions` |
+| Anthropic (thin adapter) | [Claude pricing docs](https://platform.claude.com/docs/en/about-claude/pricing) | `https://api.anthropic.com` plus `/v1/messages` |
+
+| Setting | Value in this repo | What to put |
+|---|---|---|
+| `LLM_PRICE_DATE` | empty | `YYYY-MM-DD` of the page you copied |
+| `LLM_INPUT_USD_PER_MILLION` | empty | USD per 1,000,000 input tokens, from that page |
+| `LLM_OUTPUT_USD_PER_MILLION` | empty | USD per 1,000,000 output tokens, from that page |
+| `MAX_LIVE_SPEND_USD` | empty | Hard cap in USD, per run and per process |
+| `LLM_API_KEY` | empty | Secret, in the shell only. Never in the repo or in CI |
+
+The client converts those USD strings to integer micro-USD (6 decimal places
+max) and estimates a call as
+`(tokens_in * input_rate + tokens_out * output_rate) // 1_000_000`.
+Token counts come from the API usage field when it is present. A zero price
+is rejected, because it would disable the cap. This estimate is not an
+invoice. The provider's bill is the source of truth.
+
+`MAX_LIVE_SPEND_USD` is checked before the call and again after the cost is
+added. If the call crosses the cap, the HTTP request may already have been
+sent. The completion is discarded and the run fails with a spend-cap error.
+It is not retried. The same cap applies to the run and to the process, so a
+second run in the same process stops too.
+
+`RUN_BUDGET_MICRO_USD` is the older per-run budget on recorded step cost.
+Hosted calls write the operator's price into that ledger as well. Set both.
+The stub suite does not use the live table. Its cost stays the synthetic
+one in `pricing.py`.
+
+This live path is untested against the real xAI, OpenAI, and Anthropic APIs
+until Diego loads a key and runs it himself. See [RUNBOOK.md](RUNBOOK.md).
+
 ## Controls
 
 | Control | Default | What it stops |
 |---|---|---|
 | `RUN_BUDGET_MICRO_USD` | 100000 (USD 0.10) | Another model call or tool after the run has spent more than the budget. The call that crossed the line is already paid for and recorded. Its side effects are not taken. |
+| `MAX_LIVE_SPEND_USD` | unset. Live mode is off. | Hosted calls only, and only after `LIVE_MODE=1`. One cap for the run and one for the process. The completion that crosses it is not used. |
 | `MAX_STEP_ATTEMPTS` | 3 | Retries of a transient tool or model error. |
 | `CIRCUIT_BREAKER_THRESHOLD` | 3 | A tool that keeps failing. A successful model call does not reset the counter. |
 | `MAX_AGENT_STEPS` | 8 | A loop that never finishes. The happy path uses 5 model turns. |
@@ -54,9 +98,11 @@ budget. Mixing them up is how a team accidentally caps the wrong thing.
 
 ## What a customer should do on day one
 
-1. Write down the vendor price and the date.
-2. Run the golden set once live, under a spend cap, and fill the empty row
-   above. Do not paste the stub latency into that row.
+1. Write down the vendor price and the date in `LLM_PRICE_DATE`,
+   `LLM_INPUT_USD_PER_MILLION`, and `LLM_OUTPUT_USD_PER_MILLION`.
+2. Run one case live, under `MAX_LIVE_SPEND_USD`, and fill the empty row
+   above. Do not paste the stub latency into that row. This repo has not
+   done that run.
 3. Set `RUN_BUDGET_MICRO_USD` from the live number, with headroom for
    retries, not from the stub.
 4. Alert on runs that end `budget_exceeded` or `circuit_open`.

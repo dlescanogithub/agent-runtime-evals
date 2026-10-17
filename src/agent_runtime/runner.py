@@ -350,7 +350,7 @@ class AgentRunner:
         )
 
     def _llm_turn(self, run: RunRecord, steps: list[StepRecord]) -> RunOutcome | None:
-        request = build_request(run.input_json, steps)
+        request = build_request(run.input_json, steps, run.id)
         started = time.perf_counter_ns()
         attempt = 0
         last_error = "model call failed"
@@ -371,7 +371,14 @@ class AgentRunner:
             return self._fail(run, "provider_error", last_error)
 
         latency_us = _elapsed_us(started)
-        price = cost_micro_usd(completion.tokens_in, completion.tokens_out)
+        # Hosted providers price the call from the operator's table and
+        # already charged the live cap. The stub has no such number, so
+        # the synthetic table in pricing.py still applies.
+        price = (
+            completion.cost_micro_usd
+            if completion.cost_micro_usd is not None
+            else cost_micro_usd(completion.tokens_in, completion.tokens_out)
+        )
         self._store.insert_step(
             NewStep(
                 run_id=run.id,
