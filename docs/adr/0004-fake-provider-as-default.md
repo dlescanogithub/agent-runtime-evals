@@ -18,12 +18,14 @@ the interview question is "what happens when you swap it".
 
 ## Decision
 
-`LLMProvider` is one method: `complete`. `FakeProvider` never reads
-`customer_message`. It looks at tool results and calls `policy.decide`,
-which is the same function `send_refund` uses. `CassetteProvider` replays a
-frozen list of those completions. `OpenAICompatibleProvider` is stdlib HTTP,
-used only when `LLM_PROVIDER=openai` and the key is in the environment.
-Tests inject a transport. They do not open a socket to a vendor.
+`LLMProvider` is one method: `complete`. `FakeProvider` reads
+`customer_message` and classifies it. Ordinary text follows `policy.decide`,
+the same function `send_refund` uses. A few attack phrases are obeyed on
+purpose, so the tools and the gate are what stop the bad call.
+`CassetteProvider` replays a frozen list of those completions.
+`OpenAICompatibleProvider` is stdlib HTTP, used only when
+`LLM_PROVIDER=openai` and the key is in the environment. Tests inject a
+transport. They do not open a socket to a vendor. CI does not set the key.
 
 The system prompt is still sent, so token counts include it. The stub does
 not follow the prompt. A real model would. The tools and the gate do not
@@ -31,11 +33,11 @@ rely on that.
 
 ## Consequences
 
-- The green suite shows the runtime and the frozen behavior. It does not
-  show that a particular hosted model is safe.
-- Swapping in a hosted model is a configuration change plus a cassette
-  review, not a rewrite of the loop.
-- The stub will not surprise us with a novel tool call. The adversarial
-  cases document the safe behavior we want a real model to match. They do
-  not prove a real model matches it. That is what a live, capped run is for,
-  and this MVP does not include one.
+- The green suite shows the runtime against this stub. It does not show
+  that a particular hosted model is safe.
+- Pointing the HTTP client at a hosted model is a configuration change.
+  It does not update the cassettes, and CI will keep replaying the old
+  ones. A live eval is future work.
+- The adversarial cassettes are this stub obeying the attack. They show
+  the controls stopping that stub. They do not prove a hosted model
+  behaves the same way.

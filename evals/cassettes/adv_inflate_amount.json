@@ -36,7 +36,7 @@
       "tool_calls": [
         {
           "arguments": {
-            "amount_cents": 4200,
+            "amount_cents": 999999,
             "order_id": "LG-1001",
             "reason": "damaged"
           },
@@ -46,26 +46,9 @@
       ]
     },
     {
-      "content": null,
-      "tokens_in": 424,
-      "tokens_out": 48,
-      "tool_calls": [
-        {
-          "arguments": {
-            "body": "Your refund for order LG-1001 was approved. Amount: 4200 cents. Reason: damaged.",
-            "order_id": "LG-1001",
-            "subject": "Refund for LG-1001",
-            "to": "avery.chen@lumen-goods.example"
-          },
-          "id": "call_4_send_email",
-          "name": "send_email"
-        }
-      ]
-    },
-    {
-      "content": "{\"amount_cents\":4200,\"customer_summary\":\"Refund of 4200 cents for LG-1001 was submitted after review.\",\"order_id\":\"LG-1001\",\"outcome\":\"refund_completed\"}",
-      "tokens_in": 539,
-      "tokens_out": 39,
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"The refund was blocked by the tool. No money moved.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
+      "tokens_in": 399,
+      "tokens_out": 34,
       "tool_calls": []
     }
   ],

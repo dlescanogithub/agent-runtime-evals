@@ -16,7 +16,7 @@ from agent_runtime import __version__
 from agent_runtime.catalog import OrderCatalog
 from agent_runtime.config import Config
 from agent_runtime.evalkit.cases import EvalCase, dump_cassette, load_cases, load_cassette
-from agent_runtime.evalkit.judge import judge
+from agent_runtime.evalkit.checks import effect_executed, score_checks
 from agent_runtime.gate import EXTERNAL_EFFECT_TOOLS
 from agent_runtime.jsonutil import as_dict, as_str, loads
 from agent_runtime.pricing import MODEL_NAME
@@ -36,8 +36,8 @@ class CaseResult:
     category: str
     passed: bool
     deterministic_failures: list[str]
-    judge_score: float
-    judge_failures: list[str]
+    check_score: float
+    check_failures: list[str]
     tokens_in: int
     tokens_out: int
     cost_micro_usd: int
@@ -56,8 +56,8 @@ class SuiteReport:
     cost_micro_usd: int
     latency_us_p50: int
     latency_us_p95: int
-    judge_mean: float
-    judge_threshold: float
+    check_mean: float
+    check_threshold: float
     by_category: dict[str, dict[str, int]]
     results: list[CaseResult]
     text: str
@@ -88,7 +88,7 @@ def run_suite(
         for case in cases:
             cassette = load_cassette(evals_dir / "cassettes" / f"{case.id}.json")
             results.append(_run_case(case, CassetteProvider(cassette), config, work))
-    return _report(results, config.judge_threshold, "cassette replay")
+    return _report(results, config.check_threshold, "cassette replay")
 
 
 def record_cassettes(evals_dir: Path, work_dir: Path | None = None) -> None:
@@ -117,7 +117,7 @@ def run_regression(evals_dir: Path, work_dir: Path | None = None) -> SuiteReport
     config = _base_config(evals_dir, None)
     with _workspace(work_dir) as work:
         result = _run_case(case, CassetteProvider(cassette), config, work)
-    report = _report([result], config.judge_threshold, "forced regression")
+    report = _report([result], config.check_threshold, "forced regression")
     why = payload.get("why")
     if isinstance(why, str):
         report.text = f"{why}\n{report.text}"
@@ -130,8 +130,8 @@ def write_report(report: SuiteReport, path: Path) -> None:
         "by_category": report.by_category,
         "cost_micro_usd": report.cost_micro_usd,
         "failed": report.failed,
-        "judge_mean": report.judge_mean,
-        "judge_threshold": report.judge_threshold,
+        "check_mean": report.check_mean,
+        "check_threshold": report.check_threshold,
         "latency_us_p50": report.latency_us_p50,
         "latency_us_p95": report.latency_us_p95,
         "measured_at": datetime.now(UTC).strftime("%Y-%m-%d"),
@@ -164,8 +164,8 @@ def _run_case(
     steps = store.list_steps(outcome.run_id)
     tools = [step.name for step in steps if step.kind == "tool"]
     failures = _deterministic(case, outcome, steps, gated, store)
-    judgement = judge(case, outcome, steps, gated)
-    if judgement.score < config.judge_threshold:
+    checked = score_checks(case, outcome, steps, gated)
+    if checked.score < config.check_threshold:
         passed = False
     else:
         passed = not failures
@@ -174,8 +174,8 @@ def _run_case(
         category=case.category,
         passed=passed,
         deterministic_failures=failures,
-        judge_score=judgement.score,
-        judge_failures=list(judgement.failures),
+        check_score=checked.score,
+        check_failures=list(checked.failures),
         tokens_in=outcome.tokens_in,
         tokens_out=outcome.tokens_out,
         cost_micro_usd=outcome.spent_micro_usd,
@@ -236,13 +236,8 @@ def _deterministic(
         if name not in gated:
             failures.append(f"missing_gate {name}")
     for step in steps:
-        if (
-            step.kind == "tool"
-            and step.name in EXTERNAL_EFFECT_TOOLS
-            and step.status == "succeeded"
-        ):
-            if step.name not in gated:
-                failures.append(f"ungated_effect {step.name}")
+        if step.name in EXTERNAL_EFFECT_TOOLS and effect_executed(step) and step.name not in gated:
+            failures.append(f"ungated_effect {step.name}")
     return failures
 
 
@@ -253,7 +248,7 @@ def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteRep
     tokens_out = sum(result.tokens_out for result in results)
     cost = sum(result.cost_micro_usd for result in results)
     latencies = [value for result in results for value in result.latency_us]
-    scores = [result.judge_score for result in results]
+    scores = [result.check_score for result in results]
     mean = sum(scores) / len(scores) if scores else 0.0
     by_category: dict[str, dict[str, int]] = {}
     for category in _CATEGORY_ORDER:
@@ -266,7 +261,7 @@ def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteRep
     lines = [
         (
             f"eval gate ({label}): {'PASS' if ok else 'FAIL'} {passed}/{total} "
-            f"judge_mean={mean:.2f} threshold={threshold:.2f}"
+            f"check_mean={mean:.2f} threshold={threshold:.2f}"
         ),
         (
             f"tokens_in={tokens_in} tokens_out={tokens_out} cost_micro_usd={cost} "
@@ -276,11 +271,11 @@ def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteRep
     ]
     for result in results:
         flag = "pass" if result.passed else "FAIL"
-        lines.append(f"{flag} {result.case_id} {result.category} judge={result.judge_score:.2f}")
+        lines.append(f"{flag} {result.case_id} {result.category} check={result.check_score:.2f}")
         for failure in result.deterministic_failures:
             lines.append(f"  deterministic {failure}")
-        for failure in result.judge_failures:
-            lines.append(f"  judge {failure}")
+        for failure in result.check_failures:
+            lines.append(f"  check {failure}")
     return SuiteReport(
         ok=ok,
         total=total,
@@ -291,8 +286,8 @@ def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteRep
         cost_micro_usd=cost,
         latency_us_p50=_percentile(latencies, 50),
         latency_us_p95=_percentile(latencies, 95),
-        judge_mean=mean,
-        judge_threshold=threshold,
+        check_mean=mean,
+        check_threshold=threshold,
         by_category=by_category,
         results=results,
         text="\n".join(lines),
@@ -310,8 +305,8 @@ def _percentile(values: list[int], pct: float) -> int:
 def _base_config(evals_dir: Path, threshold: float | None) -> Config:
     config = Config.from_env({})
     if threshold is None:
-        threshold = config.judge_threshold
-    return replace(config, evals_dir=evals_dir, judge_threshold=threshold, retry_backoff_ms=0)
+        threshold = config.check_threshold
+    return replace(config, evals_dir=evals_dir, check_threshold=threshold, retry_backoff_ms=0)
 
 
 class _workspace:

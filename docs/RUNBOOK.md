@@ -24,9 +24,11 @@ make demo          # synthetic story, wipes var/demo each time
 python -m agent_runtime.cli serve
 ```
 
-`serve` binds `API_HOST` and `API_PORT` (default `127.0.0.1:8080`). There is
-no authentication. Keep it on localhost, or put the customer's identity
-provider in front of it and do not publish the raw port.
+`serve` binds `API_HOST` and `API_PORT` (default `127.0.0.1:8080`). It does
+not start unless `API_TOKEN` is set. Callers send `Authorization: Bearer`.
+`GET /health` does not need the token. Keep the process on localhost, and
+put the customer's identity provider in front before any other host can
+reach it. Approving a step that is already approved does nothing.
 
 Start a real run (still the stub unless the environment says otherwise):
 
@@ -86,8 +88,13 @@ send later: event, run id, step id, tool name, latency, tokens, cost.
 ## Incident: the worker died mid-tool
 
 `resume` the run. If the effect row exists, the tool returns it. If it does
-not, the tool tries again, up to the attempts that are left. Do not delete
-the step to "unstick" it. That is how a second payment gets invented.
+not, the tool tries again, up to the attempts that are left, but only when
+`claim_token` is still null. A second live worker loses the run lock and
+does not execute. If the process died inside the loop, `run_locks` still
+has a row and resume will not steal it. Confirm the worker is dead, delete
+that one `run_locks` row, clear `claim_token` if it is set, and resume
+once. Do not delete the step to "unstick" it. That is how a second payment
+gets invented.
 
 ## Approval-gate ownership
 
@@ -121,9 +128,11 @@ revision".
 
 ## Model change
 
-1. Run the golden set against the new model outside CI, under a spend cap
-   the operator sets. This repo does not do that run for you.
-2. Review the cassette diff. A trajectory change is a product change.
+1. The cassette gate will not notice the new model. A live run is a
+   separate job, under a spend cap the operator sets. This repo does not
+   do that run for you.
+2. If you re-record cassettes, review the diff. A trajectory change is a
+   product change. CI keeps passing the old cassettes until that diff lands.
 3. Someone who did not write the diff merges it. `main` requires the CI
    jobs listed in SECURITY.md. Those checks are a GitHub setting. This
    repository does not turn them on.

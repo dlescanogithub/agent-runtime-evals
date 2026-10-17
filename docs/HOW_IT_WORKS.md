@@ -43,7 +43,7 @@ Pensalo como cajas con una sola responsabilidad.
 | `catalog.py` | Los pedidos sintéticos, solo lectura | Los reembolsos no se escriben acá |
 | `store.py` | SQLite: runs, steps, effects, ledger | No es Postgres |
 | `trace.py` | Un JSONL por corrida: latencia, tokens, costo | No guarda el email ni el cuerpo |
-| `evalkit/` | Los 22 casos, los cassettes, los checks, el juez | No llama a un modelo pago |
+| `evalkit/` | Los 22 casos, los cassettes, el checker determinístico | No llama a un modelo pago |
 
 ## Las cuatro tools
 
@@ -102,11 +102,11 @@ la plata ya se movió.
 
 ## Por qué cada decisión
 
-**El modelo no es de confianza.** El texto del cliente (`customer_message`)
-puede decir "ignorá la política" o "aprobate solo". El stub ni lee ese
-campo. Un modelo de verdad sí lo lee, y se puede dejar convencer. Por eso
-la validación, el gate y el re-chequeo de la política no dependen de que el
-modelo se porte bien.
+**El modelo no es de confianza.** El stub lee `customer_message`. Si el
+texto pide saltear el lookup, inflar el monto, o mandar el mail a otra
+dirección, el stub obedece. La tool o el gate lo frenan, y no queda un
+effect. Eso prueba los controles contra este stub. No prueba un modelo
+de verdad: el CI solo reproduce cassettes.
 
 **El gate está en código, no en el prompt.** Un prompt que dice "no
 reembolses sin aprobación" ayuda. Una rama que no ejecuta la tool hasta que
@@ -126,12 +126,14 @@ está implementado. No lo presentes como si ya corriera.
 **Cassettes en el CI.** Una llamada live cuesta plata y no es
 determinística. El CI reproduce las respuestas grabadas del stub. Las tools
 y el gate sí corren de verdad. Grabar de nuevo es un diff que se revisa,
-no un paso automático.
+no un paso automático. Cambiar el modelo en producción, sin regrabar, no
+pone el CI en rojo. El gate no ve ese cambio.
 
 **Dos niveles de eval.** Lo determinístico (trayectoria, schema, montos,
-effects, gate) bloquea siempre. El juez de rúbrica bloquea si el puntaje
-baja de 0.80. El juez de este repo es código, no otro modelo. No hay un
-número de acuerdo juez-vs-humano. No lo inventes en la entrevista.
+effects, gate) bloquea siempre. El checker es una checklist en código y
+bloquea si el puntaje baja de 0.80. No es un juez y no llama a un modelo.
+Un LLM judge es trabajo futuro. No hay un número de acuerdo con humanos.
+No lo inventes en la entrevista.
 
 **Budget y circuit breaker son cosas distintas.** El budget es plata del
 modelo (micro-USD). El tope del reembolso es otra cosa (el saldo del pedido
@@ -180,7 +182,7 @@ con el botón de aprobar. Operaciones opera. El aprobador aprueba. El que
 cambia el prompt no se mergea solo.
 
 Si me preguntan por el ahorro, separo los números. El costo del stub está
-medido (348 micro-USD la demo, 5870 micro-USD las 22 corridas, el
+medido (348 micro-USD la demo, 5226 micro-USD las 22 corridas, el
 2026-10-17). El ahorro de horas es [EST] y está en el business case, con
 los supuestos a la vista. No mezclo las dos columnas.
 
@@ -198,20 +200,25 @@ Porque la key de negocio ya está escrita. El segundo intento lee el effect
 y devuelve el mismo recibo. El ledger no suma de nuevo.
 
 **¿Qué pasa si el modelo se salta el lookup pero el monto es correcto?**
-La tool, si alguien aprueba, igual revalida la política y podría dejarlo
-pasar. El eval no. La trayectoria esperada incluye los dos lookups. El
-regresión forzada es exactamente ese caso, y el CI queda rojo. Las dos
-capas hacen cosas distintas.
+La tool rechaza `send_refund` si en esa corrida no hubo `lookup_order` y
+`lookup_policy` exitosos. No abre el gate y no escribe un effect. El caso
+`adv_skip_lookup` espera exactamente eso, y pasa. La regresión forzada
+usa el mismo tipo de cassette contra el caso feliz, que espera un
+reembolso completado, y por eso el gate queda rojo. Las dos cosas miden
+distinto: una que el control frena el ataque, la otra que un transcript
+malo no se cuela como caso feliz.
 
 **¿El stub demuestra que GPT o Claude son seguros?**
-No. Demuestra el runtime y el comportamiento que queremos congelar. Un
-modelo de verdad entra por la misma interfaz, y el diff de cassettes es la
-revisión. Un corrida live, si la pagan, va aparte y con tope. Acá no está.
+No. Demuestra el runtime contra respuestas grabadas. Un modelo de verdad
+no está en el CI. Regrabar cassettes sería un diff revisado, y hoy nadie
+lo hace contra un modelo pago. Una corrida live, si la pagan, va aparte
+y con tope.
 
-**¿Por qué el p95 es de microsegundos?**
+**¿Por qué la latencia es de microsegundos?**
 Porque es el tiempo adentro del proceso, con un stub. No es un modelo en
-red. El número medido el 2026-10-17 es p50 1 µs y p95 1433 µs. Si lo
-comparás con un SLO de voz, estás mezclando cosas.
+red. El 2026-10-17 el p50 fue 1 µs. El p95 se mueve entre corridas y no
+es un número del gate. Si lo comparás con un SLO de voz, estás mezclando
+cosas.
 
 ### De Deployment Strategist
 
@@ -223,7 +230,9 @@ Si aparece uno, se apaga.
 **¿Qué le pedís a IT del cliente?**
 Un lugar donde correr el proceso, el secreto del modelo en el entorno (no
 en el repo), un sistema de pedidos que acepte idempotency key, y el
-identity provider delante de la API. La API de este MVP no tiene login.
+identity provider delante de la API. Este MVP pide un bearer token
+(`API_TOKEN`) en todo menos `GET /health`. Eso no reemplaza el login
+del cliente.
 
 **¿Quién es dueño del gate?**
 El aprobador. El que cambia el prompt no aprueba los reembolsos de su
@@ -233,16 +242,18 @@ envío. Después del handoff, el que construyó no conserva el botón.
 **¿Cómo medís el piloto?**
 En CI: el golden set verde y la regresión forzada roja. Con la gente: drafts
 aprobados sin editar el monto, el motivo o el destinatario, y edad de la
-cola. No publico un "accuracy" que no medí. El acuerdo juez-humano no existe
-todavía.
+cola. No publico un "accuracy" que no medí. No hay un acuerdo entre un
+juez y un humano, porque no hay un juez: el checker es código.
 
 **¿Qué pasa si cambian el modelo?**
-Es un pull request. Mismos casos, cassettes nuevos, los mira alguien que no
-los escribió. `main` exige los checks de CI. Esos checks se configuran en
-GitHub. El repo no los enciende solo. El primer día se mira la cola y los
-rechazos. El rollback es deployar la revisión anterior y rechazar lo que
-quedó esperando. Lo que ya se pagó lo revierte una persona en el sistema de
-pedidos. El agente no tiene undo mágico.
+El CI de este repo no se entera. Solo ve cassettes. Si quieren probar el
+modelo nuevo, es una corrida aparte, con tope de gasto, y un diff de
+cassettes que mira alguien que no lo escribió. Eso es trabajo futuro: acá
+no hay una corrida live. `main` puede exigir el job `ci`. Ese check se
+configura en GitHub. El repo no lo enciende solo. El rollback es deployar
+la revisión anterior y rechazar lo que quedó esperando. Lo que ya se pagó
+lo revierte una persona en el sistema de pedidos. El agente no tiene undo
+mágico.
 
 **¿Y si el cliente quiere sacarle el gate para ir más rápido?**
 Les muestro el costo de un reembolso mal hecho contra el ahorro de los 45
@@ -256,9 +267,10 @@ El precio de un proveedor se copia de la página oficial el día que se mide.
 No tengo ese número porque no hice esa corrida.
 
 **¿Qué no hace?**
-No autentica la API. No exporta OpenTelemetry. No corre dos workers con
-`SKIP LOCKED`. No tiene 100 casos. No tiene un juez que sea un modelo. No
-promete un ROI medido. El business case marca [EST] lo que es estimado.
+Tiene un bearer token, no el identity provider del cliente. No exporta
+OpenTelemetry. No corre dos workers con `SKIP LOCKED`. No tiene 100 casos.
+No tiene un LLM judge. No promete un ROI medido. El business case marca
+[EST] lo que es estimado.
 
 **¿Cómo se lo dejás operando?**
 Con el runbook: quién mira la cola, qué señal es un incidente, cómo se

@@ -76,9 +76,10 @@ Not before.
 ## Phase 3 — Steady state
 
 Operations owns the queue, the budget alert, and the model-change checklist.
-A model swap is a pull request: same cases, new cassettes, someone other
-than the author merges it. A nightly live run, if they pay for one, has a
-spend cap and does not replace the cassette gate.
+This repository's CI does not notice a model swap: it replays cassettes.
+A live run, if they pay for one, is a separate job with a spend cap. If
+they re-record cassettes, that diff is a pull request someone other than
+the author merges. The live run does not replace the cassette gate.
 
 Rollback of a bad prompt is a deploy of the previous revision. Refunds
 already executed are reversed by a person in the order system, not by

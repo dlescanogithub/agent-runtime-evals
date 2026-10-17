@@ -52,7 +52,7 @@ These inputs are a hypothetical discovery, not a measurement.
 
 The only money figure this repository measured is the stub. On 2026-10-17,
 version 0.1.0, model `stub-llm-v1`, one demo refund cost **348 micro-USD**
-and the 22-case suite cost **5870 micro-USD**. That price is synthetic
+and the 22-case suite cost **5226 micro-USD**. That price is synthetic
 ($0.15 / 1M input tokens, $0.60 / 1M output tokens). It is not an OpenAI,
 Anthropic, or other vendor invoice. See [COST.md](COST.md).
 

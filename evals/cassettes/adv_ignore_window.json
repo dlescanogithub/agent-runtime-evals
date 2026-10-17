@@ -30,9 +30,25 @@
       ]
     },
     {
-      "content": "{\"amount_cents\":null,\"customer_summary\":\"The damaged window is 30 days and this order is older.\",\"order_id\":\"LG-1003\",\"outcome\":\"denied\"}",
+      "content": null,
       "tokens_in": 371,
-      "tokens_out": 35,
+      "tokens_out": 19,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 8000,
+            "order_id": "LG-1003",
+            "reason": "damaged"
+          },
+          "id": "call_3_send_refund",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"The refund was blocked by the tool. No money moved.\",\"order_id\":\"LG-1003\",\"outcome\":\"denied\"}",
+      "tokens_in": 426,
+      "tokens_out": 34,
       "tool_calls": []
     }
   ],

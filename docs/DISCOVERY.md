@@ -90,10 +90,11 @@ behavior change.
 **Hypothetical Lumen answer.** They want to try a cheaper model next quarter.
 They cannot take a week of bad refunds to find out. [hypothetical]
 
-**Design change.** Pull requests replay cassettes. Deterministic checks
-(trajectory, schema, amounts, gates) always block. The rubric blocks under
-0.80. A live model is not on the default path. Re-recording cassettes is a
-deliberate commit, reviewed like code. See ADR 0003.
+**Design change.** Pull requests replay cassettes. They do not call the
+new model, so a model swap is invisible until someone re-records. That
+re-record is future work. Today the gate checks the runtime against the
+frozen stub: trajectory, schema, amounts, gates, and a code checklist
+under 0.80. See ADR 0003.
 
 ## 8. What SLO is acceptable?
 
@@ -103,8 +104,8 @@ A stuck approval queue is not.
 **Hypothetical Lumen answer.** A draft in under a minute is enough. A run
 must not sit in `waiting_review` overnight without an owner. [hypothetical]
 
-**Design change.** The stub's in-process latency (p50 1 µs, p95 1433 µs on
-2026-10-17) is not the SLO. The SLO we would write with them is about queue
+**Design change.** The stub's in-process latency (p50 1 µs on 2026-10-17;
+p95 moves and is not a gate) is not the SLO. The SLO we would write with them is about queue
 age and failed runs, not model milliseconds. The circuit breaker and the
 per-run budget are the controls for a stuck or runaway loop.
 

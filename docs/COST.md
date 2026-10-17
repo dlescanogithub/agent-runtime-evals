@@ -24,15 +24,15 @@ API. The optional client does that when `usage` is present.
 
 | Scenario | Model | Tokens in / out | Cost | Latency | Quality | Price date |
 |---|---|---|---|---|---|---|
-| Eval suite, 22 cases, cassette replay | stub-llm-v1 | 31161 / 2059 | 5870 micro-USD for the suite | step p50 1 µs, p95 1433 µs | 22/22, judge mean 1.00 | Synthetic price, measured 2026-10-17 |
+| Eval suite, 22 cases, cassette replay | stub-llm-v1 | 27749 / 1830 | 5226 micro-USD for the suite | p50 1 µs on 2026-10-17. p95 is in the report and is not a gate. | 22/22, checker mean 1.00 | Synthetic price, measured 2026-10-17 |
 | One damaged-lamp refund, `make demo`, including a simulated crash and two approvals | stub-llm-v1 | 1836 / 124 | 348 micro-USD | in-process, not broken out as an SLO | completed, amount 4200 cents, both effects gated | Synthetic price, measured 2026-10-17 |
 | Same refund on a hosted model | not run | not measured | not measured | not measured | not measured | Take the vendor page on the day you run it |
 | Illustrative production day, 120 runs [EST] at USD 0.01 per run [EST] | unnamed | [EST] | USD 1.20 / day [EST] | [EST], not this repo | [EST] | Not a quote |
 
-Latency is the time inside this process, around each step. The p95 of
-1433 microseconds is 1.433 milliseconds. It will move if you re-run `make
-eval` on another machine. It is not comparable to a networked model, where
-almost all of the time is the model call.
+Latency is the time inside this process, around each step. p50 on
+2026-10-17 was 1 microsecond. p95 moves between runs on this machine and
+stays under 2 milliseconds; tests do not compare it. It is not comparable
+to a networked model, where almost all of the time is the model call.
 
 Input tokens dominate because each model turn resends the transcript,
 including the system prompt. That is normal for a chat API. Five turns on

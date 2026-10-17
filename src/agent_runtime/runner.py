@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 from dataclasses import replace
 
 from agent_runtime.config import Config
@@ -72,10 +73,25 @@ class AgentRunner:
         step = self._store.get_step(step_id)
         if step.run_id != run_id:
             raise GateError("step does not belong to this run")
-        if step.status != "waiting_review":
-            raise GateError(f"step is {step.status}, not waiting_review")
         if decision not in ("approve", "reject"):
             raise GateError("decision must be approve or reject")
+        # A double click is a no-op. A second decision that contradicts the
+        # first one is an error. Execution does not happen in this method.
+        if decision == "approve" and step.status in ("approved", "succeeded"):
+            log(
+                logger,
+                logging.INFO,
+                "gate_approve_idempotent",
+                run_id=run_id,
+                step_id=step_id,
+                status=step.status,
+            )
+            return
+        if decision == "reject" and step.status == "rejected":
+            log(logger, logging.INFO, "gate_reject_idempotent", run_id=run_id, step_id=step_id)
+            return
+        if step.status != "waiting_review":
+            raise GateError(f"step is {step.status}, not waiting_review")
         tracer = Tracer(self._config.trace_dir, run_id)
         if decision == "approve":
             saved = self._store.save_step(replace(step, status="approved", error=None))
@@ -109,6 +125,16 @@ class AgentRunner:
         log(logger, logging.INFO, "gate_rejected", run_id=run_id, step_id=step_id, tool=step.name)
 
     def _loop(self, run_id: str, interrupt_after: int | None) -> RunOutcome:
+        owner = uuid.uuid4().hex
+        if not self._store.try_lock_run(run_id, owner):
+            log(logger, logging.INFO, "run_already_locked", run_id=run_id)
+            return self._outcome(self._store.get_run(run_id))
+        try:
+            return self._loop_locked(run_id, interrupt_after)
+        finally:
+            self._store.unlock_run(run_id, owner)
+
+    def _loop_locked(self, run_id: str, interrupt_after: int | None) -> RunOutcome:
         baseline = len(self._store.list_steps(run_id))
         while True:
             run = self._store.get_run(run_id)
@@ -127,14 +153,16 @@ class AgentRunner:
                 (step for step in steps if step.kind == "tool" and step.status == "running"), None
             )
             if running is not None:
-                self._execute_tool(run, running)
+                if not self._execute_tool(run, running):
+                    return self._outcome(self._store.get_run(run_id))
                 if self._hit_interrupt(run_id, baseline, interrupt_after):
                     return self._mark_interrupted(run_id)
                 continue
 
             approved = next((step for step in steps if step.status == "approved"), None)
             if approved is not None:
-                self._execute_tool(run, approved)
+                if not self._execute_tool(run, approved):
+                    return self._outcome(self._store.get_run(run_id))
                 if self._hit_interrupt(run_id, baseline, interrupt_after):
                     return self._mark_interrupted(run_id)
                 continue
@@ -165,7 +193,7 @@ class AgentRunner:
                 return self._mark_interrupted(run_id)
 
     def _dispatch(self, run: RunRecord, call: ToolCall) -> None:
-        error = self._tools.validate(call.name, call.arguments)
+        error = self._tools.validate(call.name, call.arguments, run.id)
         if error is not None:
             self._store.insert_step(
                 NewStep(
@@ -225,20 +253,33 @@ class AgentRunner:
         )
         self._execute_tool(run, step)
 
-    def _execute_tool(self, run: RunRecord, step: StepRecord) -> None:
+    def _execute_tool(self, run: RunRecord, step: StepRecord) -> bool:
         """Run a tool with a bound number of attempts.
 
-        The attempt counter is saved before the call. A crash mid-call leaves
-        the step `running`, and resume spends only the attempts that remain.
+        The claim is taken before the call. A second worker sees the token
+        and does not execute. The attempt counter is saved before the call.
+        A crash mid-call leaves the step `running`. Resume can take it only
+        when the token is still null.
         """
 
+        claimed = self._store.claim_step_execution(step.id, uuid.uuid4().hex)
+        if claimed is None:
+            log(
+                logger,
+                logging.INFO,
+                "step_already_claimed",
+                run_id=run.id,
+                step_id=step.id,
+                tool=step.name,
+            )
+            return False
+        step = claimed
         arguments = _tool_arguments(step)
         last_error = "tool failed"
-        while step.attempt < step.max_attempts:
-            step = self._store.save_step(replace(step, status="running", attempt=step.attempt + 1))
+        while True:
             started = time.perf_counter_ns()
             try:
-                output = self._tools.execute(step.name, arguments)
+                output = self._tools.execute(step.name, arguments, run.id)
             except TransientError as exc:
                 last_error = str(exc)
                 log(
@@ -250,12 +291,18 @@ class AgentRunner:
                     tool=step.name,
                     attempt=step.attempt,
                 )
+                if step.attempt >= step.max_attempts:
+                    self._record_tool_failure(run, step, last_error, started)
+                    return True
                 if self._config.retry_backoff_ms:
                     time.sleep(self._config.retry_backoff_ms * step.attempt / 1000)
+                step = self._store.save_step(
+                    replace(step, status="running", attempt=step.attempt + 1)
+                )
                 continue
             except PermanentError as exc:
                 self._record_tool_failure(run, step, str(exc), started)
-                return
+                return True
             latency_us = _elapsed_us(started)
             saved = self._store.save_step(
                 replace(
@@ -276,8 +323,7 @@ class AgentRunner:
                 latency_us=latency_us,
                 code=_error_code(output) if output.get("ok") is not True else "ok",
             )
-            return
-        self._record_tool_failure(run, step, last_error, time.perf_counter_ns())
+            return True
 
     def _record_tool_failure(
         self, run: RunRecord, step: StepRecord, message: str, started: int

@@ -44,7 +44,7 @@ row and does not add the amount again.
 | `store.py` | Runs, steps, effects, refund ledger |
 | `trace.py` | JSONL. No email, no body. |
 | `pricing.py` | Synthetic token price |
-| `evalkit/` | Cases, cassettes, deterministic checks, stub judge |
+| `evalkit/` | Cases, cassettes, deterministic checks, code checker |
 
 ## Trust boundaries
 
@@ -66,7 +66,9 @@ Data flow of a refund:
 1. Structured input (order id, reason, amount, untrusted message).
 2. `lookup_order` returns one order, including the email on that order.
 3. `lookup_policy` returns the window for the reason.
-4. The provider proposes `send_refund` for the policy amount.
+4. On the happy path the provider proposes `send_refund` for the policy
+   amount. On an attack cassette it may propose a bad call. The tool
+   rejects that call before an effect exists.
 5. The runtime parks. No effect row yet.
 6. A person approves. The tool re-reads the order and the policy, then
    writes the effect and the ledger in one transaction.
@@ -75,6 +77,9 @@ Data flow of a refund:
 
 ## What is local, on purpose
 
-SQLite is a file. The API has no authentication. Traces are files. This is
-acceptable for a demo on one machine and for CI. It is not acceptable as the
-production deployment. ADR 0001 and the runbook say what changes.
+SQLite is a file. The API requires a bearer token except on `GET /health`.
+Traces are files. A step claim is a compare-and-swap on `claim_token`, so
+two threads do not execute the same step. That is not Postgres
+`SKIP LOCKED`, and a token left by a dead process is not stolen. This is
+acceptable for a demo on one machine and for CI. It is not the production
+deployment. ADR 0001 and the runbook say what changes.

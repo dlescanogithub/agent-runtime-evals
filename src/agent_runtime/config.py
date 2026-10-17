@@ -26,7 +26,7 @@ class Config:
     database_path: Path
     trace_dir: Path
     evals_dir: Path
-    judge_threshold: float
+    check_threshold: float
     run_budget_micro_usd: int
     max_step_attempts: int
     circuit_breaker_threshold: int
@@ -35,6 +35,7 @@ class Config:
     log_level: str
     api_host: str
     api_port: int
+    api_token: str | None
 
     @staticmethod
     def from_env(environ: dict[str, str] | None = None) -> Config:
@@ -52,7 +53,7 @@ class Config:
             database_path=Path(env.get("DATABASE_PATH", "var/runtime.sqlite")),
             trace_dir=Path(env.get("TRACE_DIR", "var/traces")),
             evals_dir=Path(env.get("EVALS_DIR", "evals")),
-            judge_threshold=_float(env.get("EVAL_JUDGE_THRESHOLD", "0.8"), "EVAL_JUDGE_THRESHOLD"),
+            check_threshold=_float(env.get("EVAL_CHECK_THRESHOLD", "0.8"), "EVAL_CHECK_THRESHOLD"),
             run_budget_micro_usd=_int(
                 env.get("RUN_BUDGET_MICRO_USD", "100000"), "RUN_BUDGET_MICRO_USD"
             ),
@@ -65,6 +66,7 @@ class Config:
             log_level=env.get("LOG_LEVEL", "INFO"),
             api_host=env.get("API_HOST", "127.0.0.1"),
             api_port=_int(env.get("API_PORT", "8080"), "API_PORT"),
+            api_token=env.get("API_TOKEN", "").strip() or None,
         )
 
 

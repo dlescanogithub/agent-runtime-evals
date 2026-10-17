@@ -4,7 +4,7 @@ from pathlib import Path
 
 from agent_runtime.evalkit.__main__ import main as eval_main
 from agent_runtime.evalkit.cases import load_cases, load_cassette
-from agent_runtime.evalkit.judge import CHECK_IDS
+from agent_runtime.evalkit.checks import CHECK_IDS
 from agent_runtime.evalkit.suite import record_cassettes, run_regression, run_suite
 
 
@@ -13,7 +13,7 @@ def test_cassette_suite_passes() -> None:
     assert report.total == 22
     assert report.ok
     assert report.passed == 22
-    assert report.judge_mean == 1
+    assert report.check_mean == 1
     counts = {name: item["total"] for name, item in report.by_category.items()}
     assert counts == {"happy": 8, "edge": 8, "adversarial": 6}
 
@@ -37,7 +37,7 @@ def test_cassettes_match_the_stub(tmp_path: Path) -> None:
         assert fresh == frozen
 
 
-def test_rubric_ids_match_the_judge() -> None:
+def test_rubric_ids_match_the_checker() -> None:
     rubric = json.loads(Path("evals/rubric.json").read_text(encoding="utf-8"))
     ids = tuple(item["id"] for item in rubric["checks"])
     assert ids == CHECK_IDS

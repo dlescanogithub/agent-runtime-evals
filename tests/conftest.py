@@ -18,7 +18,7 @@ def config(tmp_path: Path) -> Config:
         database_path=tmp_path / "runtime.sqlite",
         trace_dir=tmp_path / "traces",
         evals_dir=Path("evals"),
-        judge_threshold=0.8,
+        check_threshold=0.8,
         run_budget_micro_usd=100_000,
         max_step_attempts=3,
         circuit_breaker_threshold=3,
@@ -27,4 +27,5 @@ def config(tmp_path: Path) -> Config:
         log_level="WARNING",
         api_host="127.0.0.1",
         api_port=8080,
+        api_token="local-test-token",
     )

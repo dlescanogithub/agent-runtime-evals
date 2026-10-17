@@ -58,12 +58,18 @@ CREATE TABLE IF NOT EXISTS steps (
     tokens_out INTEGER NOT NULL DEFAULT 0,
     cost_micro_usd INTEGER NOT NULL DEFAULT 0,
     error TEXT,
+    claim_token TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     UNIQUE (run_id, idempotency_key)
 );
 
 CREATE INDEX IF NOT EXISTS idx_steps_run_seq ON steps(run_id, seq);
+
+CREATE TABLE IF NOT EXISTS run_locks (
+    run_id TEXT PRIMARY KEY,
+    owner TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS effects (
     idempotency_key TEXT PRIMARY KEY,
@@ -116,6 +122,7 @@ class SQLiteStore:
         conn = sqlite3.connect(self.path, timeout=5)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA busy_timeout = 5000")
         return conn
 
     @contextmanager
@@ -320,6 +327,61 @@ class SQLiteStore:
             if cursor.rowcount != 1:
                 raise StoreError(f"step not found: {step.id}")
         return updated
+
+    def try_lock_run(self, run_id: str, owner: str) -> bool:
+        """One worker may walk a run. The other gets False.
+
+        The row is removed when the loop returns. A process killed mid-loop
+        leaves the row. Resume will not steal it. Clear it only after that
+        process is confirmed dead.
+        """
+
+        if not owner:
+            raise StoreError("lock owner is required")
+        try:
+            with self.transaction() as conn:
+                conn.execute(
+                    "INSERT INTO run_locks (run_id, owner) VALUES (?, ?)",
+                    (run_id, owner),
+                )
+        except sqlite3.IntegrityError:
+            return False
+        return True
+
+    def unlock_run(self, run_id: str, owner: str) -> None:
+        with self.transaction() as conn:
+            conn.execute(
+                "DELETE FROM run_locks WHERE run_id = ? AND owner = ?",
+                (run_id, owner),
+            )
+
+    def claim_step_execution(self, step_id: str, owner: str) -> StepRecord | None:
+        """Take a step for execution. A second caller gets nothing.
+
+        The predicate is the lock: only one UPDATE can set claim_token while
+        it is null. A crashed step left `running` with a null token can be
+        resumed. A step that already has a token is owned; this MVP does not
+        steal it. Clear the token only after the worker process is dead.
+        """
+
+        if not owner:
+            raise StoreError("claim owner is required")
+        now = utc_now()
+        with self.transaction() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE steps
+                SET status = 'running', claim_token = ?, attempt = attempt + 1, updated_at = ?
+                WHERE id = ? AND claim_token IS NULL AND status IN ('approved', 'running')
+                """,
+                (owner, now, step_id),
+            )
+            if cursor.rowcount != 1:
+                return None
+            row = conn.execute("SELECT * FROM steps WHERE id = ?", (step_id,)).fetchone()
+        if row is None:
+            return None
+        return _step_from_row(row)
 
     def get_step(self, step_id: str) -> StepRecord:
         with self._read() as conn:

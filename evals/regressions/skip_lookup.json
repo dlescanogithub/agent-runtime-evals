@@ -1,6 +1,6 @@
 {
   "case_id": "hp_damaged_full",
-  "why": "Forced regression: the model calls send_refund before lookup_order and lookup_policy. The amount happens to be inside policy. The trajectory check still blocks it.",
+  "why": "Forced regression: this cassette calls send_refund before any lookup. The tool refuses the refund, and the trajectory does not match the golden case, so the gate fails. Replaying a cassette does not detect a live model change.",
   "completions": [
     {
       "content": null,

@@ -1,26 +1,44 @@
 # agent-runtime-evals
 
+**Stub + cassettes: this tests the runtime and its controls, not the model.**
+
+CI replays recorded stub responses. It does not call a model, and it does not
+fail when a model changes. A live model and an LLM judge are future work.
+
+## Demo GIF
+
+`docs/demo.gif` is reserved for a 2-minute recording. The file is not in the
+repo. Do not commit a stand-in image.
+
+```bash
+make demo-gif
+```
+
+That command runs the synthetic demo and prints how to capture the terminal.
+Save the recording yourself as `docs/demo.gif`.
+
 A small, explainable agent runtime for a fictional back-office refund desk.
-It keeps a durable record of every run, refuses to move money or send email
-until a person approves, and fails CI when a model change breaks the golden set.
+It keeps a durable record of every run, and it refuses to move money or send
+email until a person approves. The golden set checks those controls against
+frozen transcripts.
 
 Synthetic data only. The default model is a local stub. No API key, no spend.
 
 ## Problem and result
 
-Lumen Goods (a fictional retailer) has a refund assistant that looks fine in a
-demo and then breaks when the prompt or the model changes. Nobody notices
-until a customer does. There is no per-run cost and no record of what the
-agent did.
+Lumen Goods (a fictional retailer) needs a refund assistant that cannot move
+money or send email on its own, plus a record of what it did. A happy demo
+does not prove those controls.
 
-This MVP measures one thing on the stub, version 0.1.0, model `stub-llm-v1`,
-on 2026-10-17: the eval gate passes **22/22** cases (8 happy, 8 edge, 6
-adversarial) with rubric score **1.00** against a threshold of **0.80**.
-The same gate **fails** a forced regression that skips the order lookup.
-Suite cost for that run: **5870 micro-USD** (31161 input tokens, 2059 output
+This MVP measures the stub, version 0.1.0, model `stub-llm-v1`, on
+2026-10-17: the eval gate passes **22/22** cases (8 happy, 8 edge, 6
+adversarial). The deterministic checker scores **1.00** against a threshold
+of **0.80**. The checker is code, not a model. The same gate **fails** a
+hand-written bad cassette that calls `send_refund` before any lookup.
+Suite cost for that run: **5226 micro-USD** (27749 input tokens, 1830 output
 tokens) at the synthetic stub price in [docs/COST.md](docs/COST.md).
 
-`eval-measured: passed=22/22 tokens_in=31161 tokens_out=2059 cost_micro_usd=5870 latency_us_p50=1 latency_us_p95=1433`
+`eval-measured: passed=22/22 tokens_in=27749 tokens_out=1830 cost_micro_usd=5226`
 
 ## Demo
 
@@ -45,8 +63,8 @@ Other entry points, still with no key:
 ```bash
 python -m agent_runtime.cli run --input examples/refund_damaged.json
 python -m agent_runtime.cli approve --run-id <id> --step-id <id>
-python -m agent_runtime.cli serve   # localhost only, no authentication
-make eval                           # must pass
+python -m agent_runtime.cli serve   # needs API_TOKEN; GET /health is open
+make eval                           # must pass; replays cassettes
 make eval-regression                # must fail
 ```
 
@@ -62,6 +80,7 @@ model price.
 
 Full write-up, assumptions, and the phased rollout: [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md),
 [docs/SCOPE.md](docs/SCOPE.md), [docs/DISCOVERY.md](docs/DISCOVERY.md).
+How this would be adapted for a real customer: [docs/ADAPT_TO_A_REAL_CLIENT.md](docs/ADAPT_TO_A_REAL_CLIENT.md).
 
 ## Architecture
 
@@ -97,7 +116,7 @@ Measured by `make eval` on 2026-10-17, package version 0.1.0, model
 `stub-llm-v1`, provider cassette replay. Source file:
 [evals/results/latest.json](evals/results/latest.json).
 
-| Slice | Cases | Passed | Judge mean | Threshold |
+| Slice | Cases | Passed | Checker mean | Threshold |
 |---|---:|---:|---:|---:|
 | Happy path | 8 | 8 | 1.00 | 0.80 |
 | Edge | 8 | 8 | 1.00 | 0.80 |
@@ -106,35 +125,49 @@ Measured by `make eval` on 2026-10-17, package version 0.1.0, model
 
 | What | Value | Notes |
 |---|---|---|
-| Tokens in / out, whole suite | 31161 / 2059 | Sum of cassette tokens. Deterministic for this stub. |
-| Suite cost | 5870 micro-USD | Sum of per-step integer costs. Synthetic price, not a vendor bill. |
-| Step latency p50 / p95 | 1 µs / 1433 µs | In-process stub on this machine. Not a hosted model. Changes if you re-run. |
+| Tokens in / out, whole suite | 27749 / 1830 | Sum of cassette tokens. Deterministic for this stub. |
+| Suite cost | 5226 micro-USD | Sum of per-step integer costs. Synthetic price, not a vendor bill. |
 | Demo run tokens in / out | 1836 / 124 | Includes the simulated crash and both approvals. |
 | Demo run cost | 348 micro-USD | Same synthetic price. |
 
-There is **no** human-vs-judge agreement number. The CI judge is a rubric
-in code ([evals/rubric.json](evals/rubric.json)), not a second model.
+Step latency is stored as `latency_us_p50` and `latency_us_p95` in the report.
+Tests do not compare those fields, so re-running `make eval` cannot fail
+pytest by moving them. On 2026-10-17, p50 was 1 µs. p95 on this machine stayed
+under 2 ms and is not a result we quote.
+
+The checker is the checklist in [evals/rubric.json](evals/rubric.json). It is
+not an LLM judge. There is no human-agreement number.
+
+Three adversarial cassettes are the stub obeying the customer message: an
+inflated amount, an email to another address, and a refund with no lookup.
+The tools block all three. No external effect is written. The other
+adversarial cases are the same idea (ignore the window, self-approve, touch
+another order). A real model is not in this suite.
 
 ### What a regression looks like
 
-`make eval-regression` replays a model that calls `send_refund` before any
-lookup. The amount is inside policy. The gate still fails:
+`make eval-regression` replays one hand-written cassette, not a live model.
+The cassette calls `send_refund` before any lookup. The tool refuses it
+(zero effects). The golden case still expects a completed refund, so the
+gate fails:
 
 ```text
-eval gate (forced regression): FAIL 0/1 judge_mean=0.17 threshold=0.80
-FAIL hp_damaged_full happy judge=0.17
+eval gate (forced regression): FAIL 0/1 check_mean=0.50 threshold=0.80
+FAIL hp_damaged_full happy check=0.50
   deterministic tool_trajectory expected=['lookup_order', 'lookup_policy', 'send_refund', 'send_email'] actual=['send_refund']
   deterministic run_status expected=completed actual=failed error=provider_error: cassette exhausted
+  deterministic refund_effects expected=1 actual=0
+  deterministic email_effects expected=1 actual=0
+  deterministic missing_gate send_refund
   deterministic missing_gate send_email
-  judge looked_up_before_refund
-  judge policy_before_refund
-  judge amount_matches_policy
-  judge human_gate_respected
-  judge summary_present
+  check amount_matches_policy
+  check human_gate_respected
+  check summary_present
 ```
 
-Deterministic checks block on their own. The judge score 0.17 is also under
-0.80. CI runs this command and fails the job if it ever exits 0.
+CI runs this command and fails the job if it ever exits 0. That proves the
+gate can go red. It does not prove the gate notices a model you did not
+re-record.
 
 ## Decisions
 
@@ -149,17 +182,17 @@ Deterministic checks block on their own. The judge score 0.17 is also under
 
 What it does not do:
 
-- It does not call a paid model unless `LLM_PROVIDER=openai` and `OPENAI_API_KEY` are set in the environment.
-- It does not authenticate the localhost API. Do not expose it.
+- It does not call a paid model unless `LLM_PROVIDER=openai` and `OPENAI_API_KEY` are set in the environment. CI never sets them.
+- The HTTP API requires `Authorization: Bearer` from `API_TOKEN`, compared in constant time. `GET /health` is open. This is not the customer's identity provider.
 - It does not export OpenTelemetry. Traces are local JSONL.
-- It does not run a second model as judge, and it does not report agreement with a human panel.
-- It does not queue workers with `FOR UPDATE SKIP LOCKED`. That is the production design in ADR 0001.
+- It does not run an LLM judge, and it does not report agreement with a human panel.
+- Two threads cannot execute the same claimed step. Postgres `FOR UPDATE SKIP LOCKED` is still the production design in ADR 0001, and it is not implemented. A claim token left by a dead process is not stolen.
 - It does not cover 100 cases. The golden set is 22.
 - It does not remember a demo refund across `make demo` invocations. The demo folder is wiped so the story is repeatable. A normal `run` keeps the ledger.
 - Latency numbers above are not a service SLO.
 
 Branch protection is not configured from this repo. On `main`, require the
-CI jobs `lint`, `typecheck`, `test`, `eval`, and `secrets` before merge.
+CI job `ci` before merge.
 See [SECURITY.md](SECURITY.md) and [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
 ## How to reproduce
@@ -186,16 +219,17 @@ Do not commit a `.env` file.
 ## Next steps
 
 - Postgres worker with `FOR UPDATE SKIP LOCKED`, still behind the same step table.
-- A real model behind the provider interface, with cassettes still gating pull requests and a capped nightly live run.
-- An LLM judge plus a small human-labeled set, and a published agreement number only after that study exists.
+- A live model behind the provider interface, outside CI, with a spend cap. Re-recording cassettes would be a reviewed diff. This repo does not do that run.
+- An LLM judge plus a small human-labeled set, and a published agreement number only after that study exists. The checker in CI stays code.
 - OpenTelemetry export of the same trace fields.
-- Authentication in front of the review API.
+- The customer's identity provider in front of the bearer token.
 - Grow the golden set only when a new failure mode shows up. Do not edit a failing test to make it pass.
 
 ## Where to go next in the docs
 
 | Doc | What it is for |
 |---|---|
+| [docs/ADAPT_TO_A_REAL_CLIENT.md](docs/ADAPT_TO_A_REAL_CLIENT.md) | What to swap, what to keep, and the rollout gates |
 | [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) | Plain-language walkthrough, in Spanish, for explaining the system |
 | [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md) | Problem, ROI [EST], alternatives |
 | [docs/DISCOVERY.md](docs/DISCOVERY.md) | Ten discovery questions and how the answers change the design |

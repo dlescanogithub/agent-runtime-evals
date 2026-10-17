@@ -20,8 +20,9 @@ red only sometimes does not get trusted.
 ## Options
 
 1. One live call per pull request. Rejected. Cost and flake.
-2. Only deterministic checks. Rejected. We want a threshold that can block
-   even when the schema is valid, and we want the hook a real judge would use.
+2. Only the trajectory checks. Rejected. We also want a checklist with a
+   threshold. That checklist is code. An LLM judge is future work, not this
+   ADR.
 3. Cassettes plus two levels. Chosen.
 
 ## Decision
@@ -30,8 +31,8 @@ red only sometimes does not get trusted.
   and effect counts. Those checks always fail the process.
 - `evals/cassettes/` holds the stub's completions. CI replays them. The
   tools, the gate, and the ledger still run.
-- `evals/rubric.json` is the checklist. The stub judge scores it. The case
-  fails if the score is under 0.80.
+- `evals/rubric.json` is the checklist. `score_checks` scores it in process.
+  It does not call a model. The case fails if the score is under 0.80.
 - `evals/regressions/skip_lookup.json` is a bad transcript. `make
   eval-regression` must exit non-zero. CI fails if that command exits 0.
 - Re-recording cassettes is a command (`python -m agent_runtime.evalkit
@@ -40,10 +41,11 @@ red only sometimes does not get trusted.
 ## Consequences
 
 - CI spend on this repo is zero.
-- The cassettes can drift from a future real model. That is the point of a
-  pull request: the diff shows the behavior change.
-- We do not publish a judge-versus-human agreement. The judge is not a
-  model. Adding one later does not remove the deterministic checks.
+- CI does not notice a model change. It only replays what was recorded.
+  A future live run would be a separate, capped job. Re-recording would be
+  a reviewed diff. This repository does not run that job.
+- We do not publish agreement with a human panel. There is no LLM judge.
+  Adding one later does not remove the deterministic checks.
 - The threshold is intentionally not 1.0. One missed rubric check on a
   six-check list scores about 0.83 and passes. Two miss and the build
   fails. Tightening it is a config change with a reason, not a silent edit.

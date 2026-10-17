@@ -12,7 +12,8 @@ from __future__ import annotations
 import re
 
 from agent_runtime.catalog import OrderCatalog
-from agent_runtime.jsonutil import dumps
+from agent_runtime.errors import ValidationError
+from agent_runtime.jsonutil import as_dict, dumps, loads
 from agent_runtime.policy import MAX_REFUND_CENTS, WINDOWS_DAYS, OrderView, decide
 from agent_runtime.store import SQLiteStore
 
@@ -54,27 +55,46 @@ class ToolService:
         self._catalog = catalog
         self._store = store
 
-    def validate(self, name: str, arguments: dict[str, object]) -> dict[str, object] | None:
+    def validate(
+        self, name: str, arguments: dict[str, object], run_id: str | None = None
+    ) -> dict[str, object] | None:
         """Return an error envelope, or None when the call may proceed."""
 
         if name == "lookup_order":
-            return _validate_lookup_order(arguments)
+            error = _validate_lookup_order(arguments)
+            if error is not None:
+                return error
+            return self._ticket_guard(run_id, arguments)
         if name == "lookup_policy":
             return _validate_lookup_policy(arguments)
         if name == "send_refund":
-            return _validate_send_refund(arguments)
+            error = _validate_send_refund(arguments)
+            if error is not None:
+                return error
+            return self._refund_guards(run_id, arguments)
         if name == "send_email":
-            return self._validate_send_email(arguments)
+            error = self._validate_send_email(arguments)
+            if error is not None:
+                return error
+            return self._ticket_guard(run_id, arguments)
         return fail("unknown_tool", f"Unknown tool: {name}")
 
-    def execute(self, name: str, arguments: dict[str, object]) -> dict[str, object]:
+    def execute(
+        self, name: str, arguments: dict[str, object], run_id: str | None = None
+    ) -> dict[str, object]:
         if name == "lookup_order":
+            guard = self._ticket_guard(run_id, arguments)
+            if guard is not None:
+                return guard
             return self._lookup_order(arguments)
         if name == "lookup_policy":
             return _lookup_policy(arguments)
         if name == "send_refund":
-            return self._send_refund(arguments)
+            return self._send_refund(arguments, run_id)
         if name == "send_email":
+            guard = self._ticket_guard(run_id, arguments)
+            if guard is not None:
+                return guard
             return self._send_email(arguments)
         return fail("unknown_tool", f"Unknown tool: {name}")
 
@@ -99,7 +119,7 @@ class ToolService:
             }
         )
 
-    def _send_refund(self, arguments: dict[str, object]) -> dict[str, object]:
+    def _send_refund(self, arguments: dict[str, object], run_id: str | None) -> dict[str, object]:
         order_id = _require_str(arguments, "order_id")
         amount = _require_int(arguments, "amount_cents")
         reason = _require_str(arguments, "reason")
@@ -112,6 +132,9 @@ class ToolService:
         existing = self._store.get_effect(key)
         if existing is not None:
             return existing
+        blocked = self._refund_guards(run_id, arguments)
+        if blocked is not None:
+            return blocked
         order = self._catalog.get(order_id)
         if order is None:
             return fail("not_found", "No order exists with that id.")
@@ -196,6 +219,71 @@ class ToolService:
                 "The recipient is not the email address on the order.",
             )
         return None
+
+    def _ticket_order_id(self, run_id: str) -> str | None:
+        raw = as_dict(loads(self._store.get_run(run_id).input_json))
+        order_id = raw.get("order_id")
+        if isinstance(order_id, str):
+            return order_id
+        return None
+
+    def _ticket_guard(
+        self, run_id: str | None, arguments: dict[str, object]
+    ) -> dict[str, object] | None:
+        """The model may only touch the order on the request, not one it invents."""
+
+        if run_id is None:
+            return None
+        ticket = self._ticket_order_id(run_id)
+        order_id = arguments.get("order_id")
+        if not isinstance(order_id, str) or ticket is None:
+            return None
+        if order_id != ticket:
+            return fail(
+                "order_not_on_ticket",
+                "Tools can only touch the order id on this run.",
+            )
+        return None
+
+    def _refund_guards(
+        self, run_id: str | None, arguments: dict[str, object]
+    ) -> dict[str, object] | None:
+        ticket_error = self._ticket_guard(run_id, arguments)
+        if ticket_error is not None:
+            return ticket_error
+        if run_id is None:
+            return None
+        order_id = arguments.get("order_id")
+        if not isinstance(order_id, str):
+            return None
+        if not self._lookups_done(run_id, order_id):
+            return fail(
+                "lookup_required",
+                "send_refund requires lookup_order and lookup_policy in this run.",
+            )
+        return None
+
+    def _lookups_done(self, run_id: str, order_id: str) -> bool:
+        saw_order = False
+        saw_policy = False
+        for step in self._store.list_steps(run_id):
+            if step.kind != "tool" or step.status != "succeeded" or not step.output_json:
+                continue
+            try:
+                payload = as_dict(loads(step.output_json))
+            except ValidationError:
+                continue
+            if payload.get("ok") is not True:
+                continue
+            if step.name == "lookup_order":
+                data_raw = payload.get("data")
+                if isinstance(data_raw, dict):
+                    data = as_dict(data_raw)
+                    if data.get("order_id") == order_id and data.get("found") is True:
+                        saw_order = True
+            if step.name == "lookup_policy" and isinstance(payload.get("data"), dict):
+                saw_policy = True
+        return saw_order and saw_policy
 
 
 def _validate_lookup_order(arguments: dict[str, object]) -> dict[str, object] | None:

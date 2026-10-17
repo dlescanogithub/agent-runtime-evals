@@ -13,18 +13,18 @@
       "total": 8
     }
   },
-  "cost_micro_usd": 5870,
+  "check_mean": 1.0,
+  "check_threshold": 0.8,
+  "cost_micro_usd": 5226,
   "failed": 0,
-  "judge_mean": 1.0,
-  "judge_threshold": 0.8,
   "latency_us_p50": 1,
-  "latency_us_p95": 1433,
+  "latency_us_p95": 1218,
   "measured_at": "2026-10-17",
   "model": "stub-llm-v1",
   "passed": 22,
   "provider": "cassette",
-  "tokens_in": 31161,
-  "tokens_out": 2059,
+  "tokens_in": 27749,
+  "tokens_out": 1830,
   "total": 22,
   "version": "0.1.0"
 }
