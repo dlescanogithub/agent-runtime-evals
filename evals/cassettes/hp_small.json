@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 240,
+      "tokens_in": 355,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": null,
-      "tokens_in": 299,
+      "tokens_in": 414,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -31,7 +31,7 @@
     },
     {
       "content": null,
-      "tokens_in": 348,
+      "tokens_in": 462,
       "tokens_out": 18,
       "tool_calls": [
         {
@@ -47,7 +47,7 @@
     },
     {
       "content": null,
-      "tokens_in": 417,
+      "tokens_in": 532,
       "tokens_out": 48,
       "tool_calls": [
         {
@@ -64,7 +64,7 @@
     },
     {
       "content": "{\"amount_cents\":900,\"customer_summary\":\"Refund of 900 cents for LG-1005 was submitted after review.\",\"order_id\":\"LG-1005\",\"outcome\":\"refund_completed\"}",
-      "tokens_in": 532,
+      "tokens_in": 647,
       "tokens_out": 38,
       "tool_calls": []
     }

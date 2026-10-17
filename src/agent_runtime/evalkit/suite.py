@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,11 +17,13 @@ from pathlib import Path
 from agent_runtime import __version__
 from agent_runtime.catalog import OrderCatalog
 from agent_runtime.config import Config
+from agent_runtime.errors import AgentRuntimeError, ConfigError, SpendCapError
 from agent_runtime.evalkit.cases import EvalCase, dump_cassette, load_cases, load_cassette
-from agent_runtime.evalkit.checks import effect_executed, score_checks
+from agent_runtime.evalkit.checks import adversarial_failures, effect_executed, score_checks
 from agent_runtime.gate import EXTERNAL_EFFECT_TOOLS
 from agent_runtime.jsonutil import as_dict, as_str, loads
 from agent_runtime.pricing import MODEL_NAME
+from agent_runtime.providers.base import LLMProvider
 from agent_runtime.providers.cassette import CassetteProvider
 from agent_runtime.providers.fake import FakeProvider
 from agent_runtime.runner import AgentRunner
@@ -124,6 +128,155 @@ def run_regression(evals_dir: Path, work_dir: Path | None = None) -> SuiteReport
     return report
 
 
+def run_live(
+    evals_dir: Path,
+    environ: Mapping[str, str] | None = None,
+    work_dir: Path | None = None,
+    provider: LLMProvider | None = None,
+) -> SuiteReport:
+    """Run the golden set against a hosted model and write cassettes elsewhere.
+
+    Fails before any provider is built when live mode is off. The committed
+    ``evals/cassettes`` directory is never the destination. CI does not call
+    this. A run here is one sample, not a success rate.
+    """
+
+    config = Config.from_env(None if environ is None else dict(environ))
+    if config.live is None or config.llm_provider == "fake":
+        raise ConfigError(
+            "eval-live requires LIVE_MODE=1, a hosted LLM_PROVIDER, LLM_API_KEY, "
+            "LLM_BASE_URL, LLM_MODEL, a price table, and MAX_LIVE_SPEND_USD. "
+            "CI does not set these. No request was sent."
+        )
+    cassette_dir = live_cassette_dir(environ)
+    refuse_committed_cassettes(cassette_dir, evals_dir)
+    if provider is None:
+        from agent_runtime.providers import build_provider
+
+        provider = build_provider(config)
+    cases = load_cases(evals_dir / "cases.json")
+    cassette_dir.mkdir(parents=True, exist_ok=True)
+    results: list[CaseResult] = []
+    stopped = False
+    with _workspace(work_dir) as work:
+        for case in cases:
+            capture = _LiveCapture(provider)
+            try:
+                result = _run_case(case, capture, config, work)
+            except SpendCapError as exc:
+                results.append(_live_error(case, str(exc)))
+                stopped = True
+                break
+            except AgentRuntimeError as exc:
+                results.append(_live_error(case, f"{type(exc).__name__}: {exc}"))
+                if capture.completions:
+                    _write_live_cassette(cassette_dir, case.id, capture, config)
+                continue
+            results.append(result)
+            if capture.completions:
+                _write_live_cassette(cassette_dir, case.id, capture, config)
+    report = _report(results, config.check_threshold, "live")
+    header = (
+        f"model={config.live.model} price_date={config.live.price_date} "
+        f"measured_at={datetime.now(UTC).strftime('%Y-%m-%d')} "
+        f"cassettes={cassette_dir}"
+    )
+    if stopped:
+        header = f"{header}\nlive spend cap stopped the suite"
+    report.text = f"{header}\n{report.text}"
+    return report
+
+
+def live_cassette_dir(environ: Mapping[str, str] | None = None) -> Path:
+    env = os.environ if environ is None else environ
+    raw = env.get("LIVE_CASSETTE_DIR", "var/live-evals/cassettes")
+    return Path(raw)
+
+
+def refuse_committed_cassettes(destination: Path, evals_dir: Path) -> None:
+    resolved = destination.resolve()
+    committed = (evals_dir / "cassettes").resolve()
+    if resolved == committed or _inside(resolved, committed) or _inside(committed, resolved):
+        raise ConfigError(
+            "eval-live refuses to write into the committed cassette directory "
+            f"{committed}. Set LIVE_CASSETTE_DIR to a separate path. No request was sent."
+        )
+
+
+def write_live_report(report: SuiteReport, path: Path, model: str, price_date: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, object] = {
+        "by_category": report.by_category,
+        "cost_micro_usd": report.cost_micro_usd,
+        "failed": report.failed,
+        "check_mean": report.check_mean,
+        "check_threshold": report.check_threshold,
+        "latency_us_p50": report.latency_us_p50,
+        "latency_us_p95": report.latency_us_p95,
+        "measured_at": datetime.now(UTC).strftime("%Y-%m-%d"),
+        "model": model,
+        "note": "One live run. Not a success rate. Fill the README placeholder from this file.",
+        "passed": report.passed,
+        "price_date": price_date,
+        "provider": "live",
+        "tokens_in": report.tokens_in,
+        "tokens_out": report.tokens_out,
+        "total": report.total,
+        "version": __version__,
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+class _LiveCapture:
+    def __init__(self, inner: LLMProvider) -> None:
+        self.name = inner.name
+        self._inner = inner
+        self.completions: list[Completion] = []
+
+    def complete(self, request: CompletionRequest) -> Completion:
+        completion = self._inner.complete(request)
+        self.completions.append(completion)
+        return completion
+
+
+def _write_live_cassette(
+    directory: Path, case_id: str, capture: _LiveCapture, config: Config
+) -> None:
+    if config.live is None:
+        return
+    text = dump_cassette(
+        case_id,
+        tuple(capture.completions),
+        model=config.live.model,
+        provider=config.llm_provider,
+    )
+    (directory / f"{case_id}.json").write_text(text + "\n", encoding="utf-8")
+
+
+def _live_error(case: EvalCase, message: str) -> CaseResult:
+    return CaseResult(
+        case_id=case.id,
+        category=case.category,
+        passed=False,
+        deterministic_failures=[message],
+        check_score=0.0,
+        check_failures=[],
+        tokens_in=0,
+        tokens_out=0,
+        cost_micro_usd=0,
+        latency_us=[],
+        tools=[],
+    )
+
+
+def _inside(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
+
+
 def write_report(report: SuiteReport, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, object] = {
@@ -148,7 +301,7 @@ def write_report(report: SuiteReport, path: Path) -> None:
 
 def _run_case(
     case: EvalCase,
-    provider: CassetteProvider | RecordingProvider,
+    provider: LLMProvider,
     config: Config,
     work: Path,
 ) -> CaseResult:
@@ -160,7 +313,7 @@ def _run_case(
     )
     store = SQLiteStore(case_config.database_path)
     runner = AgentRunner(case_config, store, provider, ToolService(OrderCatalog(), store))
-    outcome, gated = _drive(runner, case.case_input)
+    outcome, gated = _drive(runner, case.case_input, case.gate_decision)
     steps = store.list_steps(outcome.run_id)
     tools = [step.name for step in steps if step.kind == "tool"]
     failures = _deterministic(case, outcome, steps, gated, store)
@@ -184,7 +337,9 @@ def _run_case(
     )
 
 
-def _drive(runner: AgentRunner, payload: dict[str, object]) -> tuple[RunOutcome, list[str]]:
+def _drive(
+    runner: AgentRunner, payload: dict[str, object], gate_decision: str = "approve"
+) -> tuple[RunOutcome, list[str]]:
     gated: list[str] = []
     outcome = runner.start(payload)
     # Eight is above the longest happy path (two gates) and stops a loop.
@@ -193,7 +348,8 @@ def _drive(runner: AgentRunner, payload: dict[str, object]) -> tuple[RunOutcome,
             break
         for pending in outcome.pending:
             gated.append(pending.tool_name)
-            runner.decide(outcome.run_id, pending.step_id, "approve")
+            reason = "A reviewer rejected this action." if gate_decision == "reject" else ""
+            runner.decide(outcome.run_id, pending.step_id, gate_decision, reason)
         outcome = runner.resume(outcome.run_id)
     return outcome, gated
 
@@ -205,6 +361,8 @@ def _deterministic(
     gated: list[str],
     store: SQLiteStore,
 ) -> list[str]:
+    if case.category == "adversarial":
+        return adversarial_failures(case, outcome, steps, gated)
     failures: list[str] = []
     tools = [step.name for step in steps if step.kind == "tool"]
     if tuple(tools) != case.tools:

@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 245,
+      "tokens_in": 360,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"The tool refused an order that is not on this request.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
-      "tokens_in": 282,
+      "tokens_in": 397,
       "tokens_out": 35,
       "tool_calls": []
     }

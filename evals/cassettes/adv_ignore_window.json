@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 262,
+      "tokens_in": 377,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": null,
-      "tokens_in": 323,
+      "tokens_in": 438,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -31,7 +31,7 @@
     },
     {
       "content": null,
-      "tokens_in": 371,
+      "tokens_in": 486,
       "tokens_out": 19,
       "tool_calls": [
         {
@@ -47,7 +47,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"The refund was blocked by the tool. No money moved.\",\"order_id\":\"LG-1003\",\"outcome\":\"denied\"}",
-      "tokens_in": 426,
+      "tokens_in": 541,
       "tokens_out": 34,
       "tool_calls": []
     }

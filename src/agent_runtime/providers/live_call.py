@@ -12,7 +12,8 @@ import time
 
 from agent_runtime.errors import PermanentError
 from agent_runtime.logging_setup import log
-from agent_runtime.providers.spend import SpendLedger, live_cost_micro_usd
+from agent_runtime.providers.spend import SpendLedger
+from agent_runtime.providers.usage import UsageBill, price_usage
 
 _logger = logging.getLogger("agent_runtime.providers")
 
@@ -26,6 +27,7 @@ class LiveCall:
         price_date: str,
         input_micro_usd_per_million: int,
         output_micro_usd_per_million: int,
+        cached_input_micro_usd_per_million: int | None,
         ledger: SpendLedger,
     ) -> None:
         self.provider = provider
@@ -33,6 +35,7 @@ class LiveCall:
         self.price_date = price_date
         self.input_micro_usd_per_million = input_micro_usd_per_million
         self.output_micro_usd_per_million = output_micro_usd_per_million
+        self.cached_input_micro_usd_per_million = cached_input_micro_usd_per_million
         self.ledger = ledger
 
     def begin(self, run_id: str) -> float:
@@ -41,19 +44,12 @@ class LiveCall:
         self.ledger.before_call(run_id)
         return time.perf_counter()
 
-    def finish(
-        self,
-        run_id: str,
-        http_status: int,
-        tokens_in: int,
-        tokens_out: int,
-        started: float,
-    ) -> int:
-        cost = live_cost_micro_usd(
-            tokens_in,
-            tokens_out,
+    def finish(self, run_id: str, http_status: int, bill: UsageBill, started: float) -> int:
+        cost, cost_source = price_usage(
+            bill,
             self.input_micro_usd_per_million,
             self.output_micro_usd_per_million,
+            self.cached_input_micro_usd_per_million,
         )
         latency_us = max(0, int((time.perf_counter() - started) * 1_000_000))
         log(
@@ -64,9 +60,13 @@ class LiveCall:
             model=self.model,
             run_id=run_id,
             http_status=http_status,
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
+            tokens_in=bill.tokens_in,
+            tokens_out=bill.tokens_out,
+            cached_tokens=bill.cached_tokens,
+            reasoning_tokens=bill.reasoning_tokens,
+            reasoning_assumed_extra=bill.reasoning_assumed_extra,
             cost_micro_usd=cost,
+            cost_source=cost_source,
             latency_us=latency_us,
             price_date=self.price_date,
         )

@@ -1,0 +1,57 @@
+{
+  "case_id": "edge_human_reject",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 351,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1001"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 412,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "damaged"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 461,
+      "tokens_out": 19,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 4200,
+            "order_id": "LG-1001",
+            "reason": "damaged"
+          },
+          "id": "call_3_send_refund",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"A reviewer rejected the refund. No money moved.\",\"order_id\":\"LG-1001\",\"outcome\":\"refund_rejected\"}",
+      "tokens_in": 502,
+      "tokens_out": 35,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

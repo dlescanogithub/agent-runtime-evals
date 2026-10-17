@@ -417,6 +417,15 @@ class AgentRunner:
             output = _parse_final(content)
         except ValidationError as exc:
             return self._fail(run, "invalid_final_output", str(exc))
+        # A model can say the refund happened without calling send_refund.
+        # That used to close the run as completed. It is a failed review.
+        claim = _refund_claim_error(self._store.list_steps(run.id), output)
+        if claim is not None:
+            saved = self._store.save_run(
+                replace(run, status="failed", output_json=dumps(output), error=claim)
+            )
+            log(logger, logging.INFO, "run_needs_review", run_id=run.id, error="needs_review")
+            return self._outcome(saved)
         saved = self._store.save_run(
             replace(run, status="completed", output_json=dumps(output), error=None)
         )
@@ -503,6 +512,37 @@ def _final_text(steps: list[StepRecord]) -> str | None:
     if completion.tool_calls:
         return None
     return completion.content or ""
+
+
+def _refund_claim_error(steps: list[StepRecord], output: dict[str, object]) -> str | None:
+    """refund_completed is allowed only when that refund effect executed."""
+
+    if output.get("outcome") != "refund_completed":
+        return None
+    order_id = output.get("order_id")
+    amount = output.get("amount_cents")
+    if not isinstance(order_id, str) or not isinstance(amount, int) or isinstance(amount, bool):
+        return (
+            "needs_review: outcome refund_completed but no executed send_refund "
+            "effect matches this order and amount"
+        )
+    for step in steps:
+        if step.kind != "tool" or step.name != "send_refund" or step.output_json is None:
+            continue
+        try:
+            payload = as_dict(loads(step.output_json))
+            wrapper = as_dict(loads(step.input_json))
+            arguments = as_dict(wrapper.get("arguments"))
+        except ValidationError:
+            continue
+        if payload.get("ok") is not True:
+            continue
+        if arguments.get("order_id") == order_id and arguments.get("amount_cents") == amount:
+            return None
+    return (
+        "needs_review: outcome refund_completed but no executed send_refund "
+        "effect matches this order and amount"
+    )
 
 
 def _parse_final(content: str) -> dict[str, object]:

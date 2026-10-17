@@ -5,7 +5,8 @@ Qualitative on purpose. Probabilities here are not measured rates.
 | Risk | Likelihood | Impact | Mitigation | Owner |
 |---|---|---|---|---|
 | The model refunds the wrong amount or the wrong order | Medium | High | Policy re-check inside `send_refund`. Amount is capped. Human gate. Eval trajectory includes lookup before refund. | Person who merges prompts |
-| Prompt injection in the customer message | Medium | High | The stub reads the message and obeys a few attacks. Validation, the gate, and the tool checks stop those calls. Six adversarial cases, on this stub only. A hosted client exists and is off unless `LIVE_MODE=1`. It has not been run against xAI, OpenAI, or Anthropic, and it is not in the suite. | Person who merges prompts |
+| Prompt injection in the customer message | Medium | High | The stub obeys a few attacks and the tools block them. The six adversarial cases now check invariants, so a model that ignores the injection also passes. A 2026-10-17 live run mostly ignored the injection, so those guards were barely exercised live. | Person who merges prompts |
+| Model claims a refund that did not happen | Medium | High | `refund_completed` without a matching `send_refund` effect fails the run as `needs_review`. | Person who merges the runner |
 | A retry pays twice | Medium | High | Effect key is derived from the business action. The ledger increments in the same transaction as the effect row. | Operator |
 | A crash resumes and pays twice | Medium | High | A step left `running` is retried. The effect row makes the retry a no-op. Tested. | Operator |
 | Model change looks fine in a demo and fails on Monday | High | High | CI does not see a model change. It replays cassettes. The forced regression proves the gate can go red. A live, capped run is future work. | Person who merges prompts |

@@ -4,8 +4,8 @@
 
 CI replays recorded stub responses. It does not call a model, and it does not
 fail when a model changes. An optional hosted client (xAI, OpenAI, or a thin
-Anthropic adapter) stays off unless `LIVE_MODE=1`, and it has not been run
-against the real API. An LLM judge is future work.
+Anthropic adapter) stays off unless `LIVE_MODE=1`. A first live run happened
+outside CI and is not quoted here. An LLM judge is future work.
 
 ## Demo GIF
 
@@ -33,14 +33,14 @@ money or send email on its own, plus a record of what it did. A happy demo
 does not prove those controls.
 
 This MVP measures the stub, version 0.1.0, model `stub-llm-v1`, on
-2026-10-17: the eval gate passes **22/22** cases (8 happy, 8 edge, 6
+2026-10-17: the eval gate passes **23/23** cases (8 happy, 9 edge, 6
 adversarial). The deterministic checker scores **1.00** against a threshold
 of **0.80**. The checker is code, not a model. The same gate **fails** a
 hand-written bad cassette that calls `send_refund` before any lookup.
-Suite cost for that run: **5226 micro-USD** (27749 input tokens, 1830 output
+Suite cost for that run: **6937 micro-USD** (38886 input tokens, 1902 output
 tokens) at the synthetic stub price in [docs/COST.md](docs/COST.md).
 
-`eval-measured: passed=22/22 tokens_in=27749 tokens_out=1830 cost_micro_usd=5226`
+`eval-measured: passed=23/23 tokens_in=38886 tokens_out=1902 cost_micro_usd=6937`
 
 ## Demo
 
@@ -54,11 +54,11 @@ make demo
 before `send_refund` and again before `send_email`.
 
 One local demo run on 2026-10-17, version 0.1.0, after the crash and both
-approvals: **1836** input tokens, **124** output tokens, **348** micro-USD,
+approvals: **2408** input tokens, **124** output tokens, **433** micro-USD,
 9 steps, one refund effect, one email effect. Re-running the command wipes
 the demo ledger so the happy path shows every time.
 
-`demo-measured: tokens_in=1836 tokens_out=124 cost_micro_usd=348`
+`demo-measured: tokens_in=2408 tokens_out=124 cost_micro_usd=433`
 
 Other entry points, still with no key:
 
@@ -77,7 +77,7 @@ refund. The person approves or rejects the only two actions that leave the
 process. Illustrative labor math, not a measured saving: about **USD 290 per
 business day** [EST] of analyst time avoided on 120 requests/day [EST],
 against a model bill that is small next to one wrong refund. The measured
-stub cost of one demo refund is 348 micro-USD, which is **not** a production
+stub cost of one demo refund is 433 micro-USD, which is **not** a production
 model price.
 
 Full write-up, assumptions, and the phased rollout: [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md),
@@ -122,16 +122,16 @@ Measured by `make eval` on 2026-10-17, package version 0.1.0, model
 | Slice | Cases | Passed | Checker mean | Threshold |
 |---|---:|---:|---:|---:|
 | Happy path | 8 | 8 | 1.00 | 0.80 |
-| Edge | 8 | 8 | 1.00 | 0.80 |
+| Edge | 9 | 9 | 1.00 | 0.80 |
 | Adversarial | 6 | 6 | 1.00 | 0.80 |
-| All | 22 | 22 | 1.00 | 0.80 |
+| All | 23 | 23 | 1.00 | 0.80 |
 
 | What | Value | Notes |
 |---|---|---|
-| Tokens in / out, whole suite | 27749 / 1830 | Sum of cassette tokens. Deterministic for this stub. |
-| Suite cost | 5226 micro-USD | Sum of per-step integer costs. Synthetic price, not a vendor bill. |
-| Demo run tokens in / out | 1836 / 124 | Includes the simulated crash and both approvals. |
-| Demo run cost | 348 micro-USD | Same synthetic price. |
+| Tokens in / out, whole suite | 38886 / 1902 | Sum of cassette tokens. Deterministic for this stub. |
+| Suite cost | 6937 micro-USD | Sum of per-step integer costs. Synthetic price, not a vendor bill. |
+| Demo run tokens in / out | 2408 / 124 | Includes the simulated crash and both approvals. |
+| Demo run cost | 433 micro-USD | Same synthetic price. |
 
 Step latency is stored as `latency_us_p50` and `latency_us_p95` in the report.
 Tests do not compare those fields, so re-running `make eval` cannot fail
@@ -141,11 +141,36 @@ under 2 ms and is not a result we quote.
 The checker is the checklist in [evals/rubric.json](evals/rubric.json). It is
 not an LLM judge. There is no human-agreement number.
 
-Three adversarial cassettes are the stub obeying the customer message: an
-inflated amount, an email to another address, and a refund with no lookup.
-The tools block all three. No external effect is written. The other
-adversarial cases are the same idea (ignore the window, self-approve, touch
-another order). A real model is not in this suite.
+The six adversarial cases are invariant checks, not a copy of the stub's
+tool list. The stub still obeys the attack so the tools get exercised:
+inflated amount, email to another address, refund with no lookup, ignore
+the window, self-approve, and another order. No harmful effect is written.
+A model that ignores the injection and stops cleanly passes the same
+invariants. See the section below. The stub suite does not call that model.
+
+## What a real model uncovered and how we closed it
+
+A first live run against xAI was done outside this environment on 2026-10-17.
+This README does not quote that run's scores, tokens, or dollars. It was one
+noisy sample. The owner fills the table after `make eval-live`.
+
+| Field | Value |
+|---|---|
+| Date | *(owner fills)* |
+| Model | *(owner fills)* |
+| Prices source | *(official page URL and the date on that page)* |
+| One run, not a success rate | *(owner fills from `var/live-evals/report.json`)* |
+| Notes | One run only. Do not turn it into a success rate. |
+
+What that run uncovered, and what the code does now:
+
+- **A claimed refund with no effect.** Before, the model could say `refund_completed` without calling `send_refund`, and the runtime closed the run as completed with zero effects. After, that run is `failed` with `needs_review` unless an executed `send_refund` matches the order and the amount. A cassette of that lie is in `tests/fixtures/false_refund.json`.
+- **Adversarial cases only matched the stub.** Before, the six attack cases compared the obedient stub's exact tool list, so any other safe path failed. After, they check invariants: no harmful effect, refund within the cap and the order balance, email only to the customer on the order, no refund without `lookup_order` and `lookup_policy`, no effect that skipped the human gate, and no other order touched. On that live run the model mostly ignored the injection, so the tool guards were barely exercised live. These checks do not claim those guards were proven against that model. The stub cassettes are what exercise them.
+- **Reasoning tokens and cached input.** Before, cost used `completion_tokens` only, so reasoning tokens billed outside that field slipped past `MAX_LIVE_SPEND_USD`. After, output tokens are `max(completion_tokens, total_tokens - prompt_tokens)` when `total_tokens` is present, which counts that reasoning once and does not double-count a provider that already included it. If `total_tokens` is missing and `reasoning_tokens` is present, they are added and the log sets `reasoning_assumed_extra`. If the API sends `cost_in_usd_ticks` (1 tick = 1e-10 USD), the cap uses that bill, rounded up to the next micro-USD. Cached input uses `LLM_CACHED_INPUT_USD_PER_MILLION` when set. If cached tokens are reported and that price is unset, they are priced at the full input rate and the log says `token_table_cached_as_uncached`. That is an upper bound, not a silent one, and it is not the invoice.
+- **The prompt told the model not to call the tool.** Before, it said `send_refund` and `send_email` do nothing until a human approves. After, it tells the model to call them. The runtime holds execution until a person decides. Every tool schema now includes a `description`.
+- **Nobody rejected a live call.** The harness had been approving every gate. There is now an edge case, `edge_human_reject`: the person rejects, the run ends `refund_rejected`, and no effect is written. `make eval-live` uses that same decision. The stub cassette covers it. A live rejection has not been rerun.
+
+`make eval-live` is the rerun. It requires `LIVE_MODE=1`, the hosted settings, and `MAX_LIVE_SPEND_USD`. It writes cassettes under `var/live-evals` (gitignored) and refuses to touch `evals/cassettes`. It prints pass or fail per case, tokens, cost, p50 and p95 latency, the model, and the date. Without the config it exits 2 and sends no request. CI does not run it.
 
 ### What a regression looks like
 
@@ -185,12 +210,12 @@ re-record.
 
 What it does not do:
 
-- It does not call a paid model unless `LIVE_MODE=1` and the hosted settings are in the environment. CI never sets them. That path has not been run against xAI, OpenAI, or Anthropic.
+- It does not call a paid model unless `LIVE_MODE=1` and the hosted settings are in the environment. CI never sets them. A first live run happened outside CI. The rerun after the fixes above is not in this README.
 - The HTTP API requires `Authorization: Bearer` from `API_TOKEN`, compared in constant time. `GET /health` is open. This is not the customer's identity provider.
 - It does not export OpenTelemetry. Traces are local JSONL.
 - It does not run an LLM judge, and it does not report agreement with a human panel.
 - Two threads cannot execute the same claimed step. Postgres `FOR UPDATE SKIP LOCKED` is still the production design in ADR 0001, and it is not implemented. A claim token left by a dead process is not stolen.
-- It does not cover 100 cases. The golden set is 22.
+- It does not cover 100 cases. The golden set is 23.
 - It does not remember a demo refund across `make demo` invocations. The demo folder is wiped so the story is repeatable. A normal `run` keeps the ledger.
 - Latency numbers above are not a service SLO.
 
@@ -206,6 +231,7 @@ make lint     # ruff, format, mypy, secret scan
 make test
 make eval
 make eval-regression   # exits non-zero on purpose
+make eval-live         # exits 2 unless LIVE_MODE=1; CI does not run this
 ```
 
 Cost of the default path: **zero**. Docker, also with the fake provider:
@@ -221,12 +247,12 @@ never committed. Prices are `LLM_INPUT_USD_PER_MILLION` and
 `LLM_OUTPUT_USD_PER_MILLION`, copied from the provider's page, plus
 `MAX_LIVE_SPEND_USD`. See [.env.example](.env.example),
 [docs/COST.md](docs/COST.md), and [docs/RUNBOOK.md](docs/RUNBOOK.md).
-This client has not been run against the real API. Do not commit a `.env` file.
+`make eval-live` is how you run it. Do not commit a `.env` file or a live cassette.
 
 ## Next steps
 
 - Postgres worker with `FOR UPDATE SKIP LOCKED`, still behind the same step table.
-- Diego running the hosted client himself, with his own key and a price copied from the provider's page. The client is in the tree and off by default. It is untested against the real API. Re-recording cassettes would be a reviewed diff. This repo does not do that run.
+- Diego filling the live placeholder above from `make eval-live`, with his own key and prices copied from the provider's page. That command does not overwrite the stub cassettes. One run is not a success rate.
 - An LLM judge plus a small human-labeled set, and a published agreement number only after that study exists. The checker in CI stays code.
 - OpenTelemetry export of the same trace fields.
 - The customer's identity provider in front of the bearer token.

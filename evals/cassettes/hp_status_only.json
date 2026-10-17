@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 240,
+      "tokens_in": 355,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"Order LG-1001 is delivered.\",\"order_id\":\"LG-1001\",\"outcome\":\"status_only\"}",
-      "tokens_in": 301,
+      "tokens_in": 416,
       "tokens_out": 29,
       "tool_calls": []
     }

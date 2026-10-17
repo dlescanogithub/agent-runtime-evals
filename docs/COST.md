@@ -25,8 +25,8 @@ unless `LIVE_MODE=1`, and it has not been run against a real API.
 
 | Scenario | Model | Tokens in / out | Cost | Latency | Quality | Price date |
 |---|---|---|---|---|---|---|
-| Eval suite, 22 cases, cassette replay | stub-llm-v1 | 27749 / 1830 | 5226 micro-USD for the suite | p50 1 µs on 2026-10-17. p95 is in the report and is not a gate. | 22/22, checker mean 1.00 | Synthetic price, measured 2026-10-17 |
-| One damaged-lamp refund, `make demo`, including a simulated crash and two approvals | stub-llm-v1 | 1836 / 124 | 348 micro-USD | in-process, not broken out as an SLO | completed, amount 4200 cents, both effects gated | Synthetic price, measured 2026-10-17 |
+| Eval suite, 23 cases, cassette replay | stub-llm-v1 | 38886 / 1902 | 6937 micro-USD for the suite | p50 1 µs on 2026-10-17. p95 is in the report and is not a gate. | 23/23, checker mean 1.00 | Synthetic price, measured 2026-10-17 |
+| One damaged-lamp refund, `make demo`, including a simulated crash and two approvals | stub-llm-v1 | 2408 / 124 | 433 micro-USD | in-process, not broken out as an SLO | completed, amount 4200 cents, both effects gated | Synthetic price, measured 2026-10-17 |
 | Same refund on a hosted model (xAI, OpenAI, or Anthropic) | not run | not measured | not measured | not measured | not measured | Not filled in. Copy the provider's page on the day you run it. This repo has not called the real API. |
 | Illustrative production day, 120 runs [EST] at USD 0.01 per run [EST] | unnamed | [EST] | USD 1.20 / day [EST] | [EST], not this repo | [EST] | Not a quote |
 
@@ -37,7 +37,7 @@ to a networked model, where almost all of the time is the model call.
 
 Input tokens dominate because each model turn resends the transcript,
 including the system prompt. That is normal for a chat API. Five turns on
-the demo refund are why 1836 input tokens accompany 124 output tokens.
+the demo refund are why 2408 input tokens accompany 124 output tokens.
 
 ## Live mode price table (empty on purpose)
 
@@ -61,11 +61,29 @@ official page:
 | `LLM_API_KEY` | empty | Secret, in the shell only. Never in the repo or in CI |
 
 The client converts those USD strings to integer micro-USD (6 decimal places
-max) and estimates a call as
-`(tokens_in * input_rate + tokens_out * output_rate) // 1_000_000`.
-Token counts come from the API usage field when it is present. A zero price
-is rejected, because it would disable the cap. This estimate is not an
-invoice. The provider's bill is the source of truth.
+max). A zero price is rejected, because it would disable the cap. This
+estimate is not an invoice. The provider's bill is the source of truth.
+
+Output tokens are `max(completion_tokens, total_tokens - prompt_tokens)` when
+`total_tokens` is present. That counts reasoning tokens a provider bills
+outside `completion_tokens`, once, and it does not add them again when they
+are already inside `completion_tokens`. If `total_tokens` is missing and
+`reasoning_tokens` is present, they are added and the log sets
+`reasoning_assumed_extra`.
+
+If `usage.cost_in_usd_ticks` is present, 1 tick = 1e-10 USD, the spend cap
+uses that bill rounded up to the next micro-USD. The token table is not
+applied on top. That bill already includes the provider's cache discount
+and reasoning.
+
+Cached input (`prompt_tokens_details.cached_tokens`, or Anthropic
+`cache_read_input_tokens`) uses `LLM_CACHED_INPUT_USD_PER_MILLION` when you
+set it, from the same official page. If cached tokens are reported and that
+price is empty, and the API did not send cost ticks, those tokens are priced
+at the full input rate and the log says `token_table_cached_as_uncached`.
+That is an upper bound. It is not silent, and it is not the invoice.
+Anthropic cache writes are added to input tokens and priced at the uncached
+input rate. This repo does not invent a write multiplier.
 
 `MAX_LIVE_SPEND_USD` is checked before the call and again after the cost is
 added. If the call crosses the cap, the HTTP request may already have been

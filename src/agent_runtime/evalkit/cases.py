@@ -5,9 +5,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from agent_runtime.jsonutil import as_dict, as_int, as_list, as_str, dumps, loads, optional_int
 from agent_runtime.types import Completion, decode_completion
+
+GateDecision = Literal["approve", "reject"]
 
 
 @dataclass(frozen=True)
@@ -22,6 +25,7 @@ class EvalCase:
     requires_human_gate: tuple[str, ...]
     refund_effects: int
     email_effects: int
+    gate_decision: GateDecision = "approve"
 
 
 def load_cases(path: Path) -> tuple[EvalCase, ...]:
@@ -43,11 +47,16 @@ def load_cassette(path: Path) -> tuple[Completion, ...]:
     return tuple(completions)
 
 
-def dump_cassette(case_id: str, completions: tuple[Completion, ...]) -> str:
+def dump_cassette(
+    case_id: str,
+    completions: tuple[Completion, ...],
+    model: str = "stub-llm-v1",
+    provider: str = "fake",
+) -> str:
     payload: dict[str, object] = {
         "case_id": case_id,
-        "model": "stub-llm-v1",
-        "provider": "fake",
+        "model": model,
+        "provider": provider,
         "completions": [_completion_obj(completion) for completion in completions],
     }
     return json.dumps(payload, indent=2, sort_keys=True)
@@ -86,4 +95,13 @@ def _case(value: object) -> EvalCase:
         requires_human_gate=gates,
         refund_effects=as_int(raw.get("refund_effects"), "refund_effects"),
         email_effects=as_int(raw.get("email_effects"), "email_effects"),
+        gate_decision=_gate_decision(raw.get("gate_decision", "approve")),
     )
+
+
+def _gate_decision(value: object) -> GateDecision:
+    if value == "approve":
+        return "approve"
+    if value == "reject":
+        return "reject"
+    raise ValueError("gate_decision must be approve or reject")

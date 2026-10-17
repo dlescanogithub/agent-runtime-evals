@@ -6,8 +6,19 @@
   client for xAI and OpenAI, and a thin Anthropic Messages adapter. Key,
   base URL, model, and prices come only from the environment. No vendor
   price is shipped. `MAX_LIVE_SPEND_USD` caps each run and the process.
-- The hosted client is untested against the real APIs. CI still runs the
-  stub and the cassettes only.
+- A claimed `refund_completed` with no matching `send_refund` effect fails
+  the run as `needs_review`.
+- The six adversarial cases check invariants instead of the stub's tool list.
+  A 2026-10-17 live run mostly ignored the injection, so those guards were
+  barely exercised live.
+- Reasoning tokens and provider cost ticks are counted. Cached input is
+  priced from `LLM_CACHED_INPUT_USD_PER_MILLION` or logged as an upper bound.
+- `make eval-live` writes cassettes outside `evals/cassettes` and fails
+  closed without live config. CI still runs the stub only.
+- The system prompt asks the model to call the gated tools. Tool schemas
+  include descriptions. `edge_human_reject` rejects at the gate.
+- Stub suite after these edits: 23/23, 38886 / 1902 tokens, 6937 micro-USD.
+  Demo: 2408 / 124 tokens, 433 micro-USD. Live rerun numbers are not filled in.
 
 ## 0.1.0 — 2026-10-17
 

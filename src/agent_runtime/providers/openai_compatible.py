@@ -9,13 +9,14 @@ from __future__ import annotations
 
 from agent_runtime.config import LiveSettings
 from agent_runtime.errors import PermanentError, ValidationError
-from agent_runtime.jsonutil import as_dict, as_int, as_list, as_str, dumps, loads
+from agent_runtime.jsonutil import as_dict, as_list, as_str, dumps, loads
 from agent_runtime.pricing import estimate_tokens
-from agent_runtime.prompts import TOOL_NAMES
+from agent_runtime.prompts import TOOL_DESCRIPTIONS, TOOL_NAMES
 from agent_runtime.providers.http import Transport, read_json
 from agent_runtime.providers.live_call import LiveCall
 from agent_runtime.providers.spend import SpendLedger
 from agent_runtime.providers.tool_schema import parameter_object
+from agent_runtime.providers.usage import UsageBill, bill_from_openai_usage
 from agent_runtime.types import Completion, CompletionRequest, Message, ToolCall
 
 
@@ -39,6 +40,7 @@ class OpenAICompatibleProvider:
             price_date=settings.price_date,
             input_micro_usd_per_million=settings.input_micro_usd_per_million,
             output_micro_usd_per_million=settings.output_micro_usd_per_million,
+            cached_input_micro_usd_per_million=settings.cached_input_micro_usd_per_million,
             ledger=ledger,
         )
 
@@ -55,13 +57,13 @@ class OpenAICompatibleProvider:
             self._settings.timeout_s,
         )
         payload = read_json(response)
-        content, calls, tokens_in, tokens_out = _parse_completion(payload)
-        cost = self._call.finish(request.run_id, response.status, tokens_in, tokens_out, started)
+        content, calls, bill = _parse_completion(payload)
+        cost = self._call.finish(request.run_id, response.status, bill, started)
         return Completion(
             content=content,
             tool_calls=tuple(calls),
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
+            tokens_in=bill.tokens_in,
+            tokens_out=bill.tokens_out,
             cost_micro_usd=cost,
         )
 
@@ -74,7 +76,11 @@ def _request_body(settings: LiveSettings, request: CompletionRequest) -> dict[st
         "tools": [
             {
                 "type": "function",
-                "function": {"name": name, "parameters": parameter_object(name)},
+                "function": {
+                    "name": name,
+                    "description": TOOL_DESCRIPTIONS[name],
+                    "parameters": parameter_object(name),
+                },
             }
             for name in TOOL_NAMES
             if name in request.tool_names
@@ -107,7 +113,7 @@ def _wire_message(message: Message) -> dict[str, object]:
 
 def _parse_completion(
     payload: dict[str, object],
-) -> tuple[str | None, list[ToolCall], int, int]:
+) -> tuple[str | None, list[ToolCall], UsageBill]:
     choices = as_list(payload.get("choices"), "choices")
     if not choices:
         raise PermanentError("model response had no choices")
@@ -132,21 +138,22 @@ def _parse_completion(
                     arguments=arguments,
                 )
             )
-    tokens_in, tokens_out = _usage(payload, content, calls)
-    return content, calls, tokens_in, tokens_out
+    return content, calls, _usage(payload, content, calls)
 
 
-def _usage(
-    payload: dict[str, object], content: str | None, calls: list[ToolCall]
-) -> tuple[int, int]:
+def _usage(payload: dict[str, object], content: str | None, calls: list[ToolCall]) -> UsageBill:
     usage = payload.get("usage")
     if isinstance(usage, dict):
-        usage_dict = as_dict(usage)
-        return (
-            as_int(usage_dict.get("prompt_tokens"), "prompt_tokens"),
-            as_int(usage_dict.get("completion_tokens"), "completion_tokens"),
-        )
+        return bill_from_openai_usage(as_dict(usage))
     output = content or ""
     for call in calls:
         output = f"{output}\n{call.name}\n{dumps(call.arguments)}"
-    return estimate_tokens(output), estimate_tokens(output)
+    tokens = estimate_tokens(output)
+    return UsageBill(
+        tokens_in=tokens,
+        tokens_out=tokens,
+        cached_tokens=0,
+        reasoning_tokens=0,
+        cost_ticks=None,
+        reasoning_assumed_extra=False,
+    )

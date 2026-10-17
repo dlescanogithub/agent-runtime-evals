@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 236,
+      "tokens_in": 351,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": null,
-      "tokens_in": 297,
+      "tokens_in": 412,
       "tokens_out": 10,
       "tool_calls": [
         {
@@ -31,7 +31,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"Unknown reason. Known reasons: changed_mind, damaged, duplicate_charge, late, not_as_described.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
-      "tokens_in": 349,
+      "tokens_in": 464,
       "tokens_out": 45,
       "tool_calls": []
     }

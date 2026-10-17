@@ -61,6 +61,7 @@ def _settings(
         price_date="2026-01-15",
         input_micro_usd_per_million=1_000_000,
         output_micro_usd_per_million=2_000_000,
+        cached_input_micro_usd_per_million=None,
         max_spend_micro_usd=1_000_000,
     )
 
@@ -134,6 +135,9 @@ def test_openai_compatible_parses_a_tool_call_and_hides_the_key() -> None:
     assert transport.headers["Authorization"] == "Bearer test-key"
     assert b"test-key" not in transport.body
     assert body["max_tokens"] == 32
+    descriptions = [tool["function"]["description"] for tool in body["tools"]]
+    assert descriptions
+    assert all(isinstance(item, str) and item for item in descriptions)
     assert body["messages"][2]["tool_calls"][0]["function"]["name"] == "lookup_order"
     assert body["messages"][3]["role"] == "tool"
 

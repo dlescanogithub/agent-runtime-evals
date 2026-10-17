@@ -179,8 +179,26 @@ What the cap does:
   tokens, cost, latency, and `LLM_PRICE_DATE`. They do not include the
   prompt, the response body, or the key.
 
-Until Diego runs the commands above against the real API, treat live mode
-as untested. A green CI job does not mean a hosted model was called.
+Until you rerun after the fixes in the README section "What a real model
+uncovered and how we closed it", do not treat an older live sample as the
+current behavior. A green CI job does not mean a hosted model was called.
+
+## Live eval
+
+`make eval-live` runs the golden set against the hosted provider. It
+requires `LIVE_MODE=1` and the settings above, including the spend cap.
+Without them it exits 2 and does not send a request. CI does not run it.
+
+Cassettes go to `var/live-evals/cassettes` unless `LIVE_CASSETTE_DIR` says
+otherwise. The command refuses to write into `evals/cassettes`. The report
+is printed and saved at `var/live-evals/report.json`: pass or fail per case,
+tokens, cost, p50 and p95 latency, model, and date. Copy that into the
+README placeholder as one run, not a success rate.
+
+`edge_human_reject` rejects at the gate. The other cases are approved, the
+same way the stub suite drives them. Adversarial cases score invariants, not
+the stub's tool list. On the first live run the model mostly ignored the
+injection, so those tool guards were barely exercised live.
 
 ## Model change
 

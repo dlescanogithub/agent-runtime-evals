@@ -45,6 +45,7 @@ class LiveSettings:
     price_date: str
     input_micro_usd_per_million: int
     output_micro_usd_per_million: int
+    cached_input_micro_usd_per_million: int | None
     max_spend_micro_usd: int
 
 
@@ -149,6 +150,10 @@ def _live_settings(env: Mapping[str, str], provider: ProviderName) -> LiveSettin
         output_micro_usd_per_million=_usd_to_micro(
             env["LLM_OUTPUT_USD_PER_MILLION"], "LLM_OUTPUT_USD_PER_MILLION"
         ),
+        cached_input_micro_usd_per_million=_optional_usd(
+            env.get("LLM_CACHED_INPUT_USD_PER_MILLION", ""),
+            "LLM_CACHED_INPUT_USD_PER_MILLION",
+        ),
         max_spend_micro_usd=_usd_to_micro(env["MAX_LIVE_SPEND_USD"], "MAX_LIVE_SPEND_USD"),
     )
 
@@ -172,6 +177,12 @@ def _price_date(raw: str) -> str:
     except ValueError as exc:
         raise ConfigError("LLM_PRICE_DATE is not a real calendar date") from exc
     return value
+
+
+def _optional_usd(raw: str, name: str) -> int | None:
+    if not raw.strip():
+        return None
+    return _usd_to_micro(raw, name)
 
 
 def _usd_to_micro(raw: str, name: str) -> int:

@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 253,
+      "tokens_in": 368,
       "tokens_out": 19,
       "tool_calls": [
         {
@@ -19,7 +19,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"The refund was blocked because the order was not looked up in this run.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
-      "tokens_in": 303,
+      "tokens_in": 418,
       "tokens_out": 39,
       "tool_calls": []
     }

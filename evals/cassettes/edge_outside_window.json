@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 240,
+      "tokens_in": 355,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": null,
-      "tokens_in": 300,
+      "tokens_in": 415,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -31,7 +31,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"The damaged window is 30 days and this order is older.\",\"order_id\":\"LG-1003\",\"outcome\":\"denied\"}",
-      "tokens_in": 349,
+      "tokens_in": 464,
       "tokens_out": 35,
       "tool_calls": []
     }

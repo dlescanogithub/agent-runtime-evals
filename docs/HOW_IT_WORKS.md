@@ -44,7 +44,7 @@ Pensalo como cajas con una sola responsabilidad.
 | `catalog.py` | Los pedidos sintéticos, solo lectura | Los reembolsos no se escriben acá |
 | `store.py` | SQLite: runs, steps, effects, ledger | No es Postgres |
 | `trace.py` | Un JSONL por corrida: latencia, tokens, costo | No guarda el email ni el cuerpo |
-| `evalkit/` | Los 22 casos, los cassettes, el checker determinístico | No llama a un modelo pago |
+| `evalkit/` | Los 23 casos, los cassettes, el checker determinístico | No llama a un modelo pago. `make eval-live` es aparte y no corre en CI |
 
 ## Las cuatro tools
 
@@ -85,8 +85,8 @@ El ejemplo es el de `make demo`: pedido `LG-1001`, motivo `damaged`,
    queda `completed`.
 
 En la medición del 2026-10-17 (versión 0.1.0, modelo `stub-llm-v1`) esa
-historia, con el corte y las dos aprobaciones, usó 1836 tokens de entrada,
-124 de salida y 348 micro-USD al precio sintético. No es una factura de un
+historia, con el corte y las dos aprobaciones, usó 2408 tokens de entrada,
+124 de salida y 433 micro-USD al precio sintético. No es una factura de un
 proveedor.
 
 Si la persona rechaza el reembolso, el step queda `rejected`, el modelo
@@ -183,7 +183,7 @@ con el botón de aprobar. Operaciones opera. El aprobador aprueba. El que
 cambia el prompt no se mergea solo.
 
 Si me preguntan por el ahorro, separo los números. El costo del stub está
-medido (348 micro-USD la demo, 5226 micro-USD las 22 corridas, el
+medido (433 micro-USD la demo, 6937 micro-USD las 23 corridas, el
 2026-10-17). El ahorro de horas es [EST] y está en el business case, con
 los supuestos a la vista. No mezclo las dos columnas.
 

@@ -1,4 +1,4 @@
-.PHONY: setup demo test eval eval-regression lint format
+.PHONY: setup demo test eval eval-regression eval-live lint format
 
 PYTHON := $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 
@@ -23,6 +23,12 @@ eval:
 # Expected to exit non-zero. This is the "CI would block this PR" demo.
 eval-regression:
 	$(PYTHON) -m agent_runtime.evalkit regression
+
+# Hosted models only. Refuses to start unless LIVE_MODE=1 and the spend cap
+# are set. Writes cassettes under var/live-evals, never evals/cassettes.
+# CI does not run this.
+eval-live:
+	$(PYTHON) -m agent_runtime.evalkit live
 
 lint:
 	$(PYTHON) -m ruff check .

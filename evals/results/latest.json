@@ -5,8 +5,8 @@
       "total": 6
     },
     "edge": {
-      "passed": 8,
-      "total": 8
+      "passed": 9,
+      "total": 9
     },
     "happy": {
       "passed": 8,
@@ -15,16 +15,16 @@
   },
   "check_mean": 1.0,
   "check_threshold": 0.8,
-  "cost_micro_usd": 5226,
+  "cost_micro_usd": 6937,
   "failed": 0,
   "latency_us_p50": 1,
-  "latency_us_p95": 1218,
+  "latency_us_p95": 969,
   "measured_at": "2026-10-17",
   "model": "stub-llm-v1",
-  "passed": 22,
+  "passed": 23,
   "provider": "cassette",
-  "tokens_in": 27749,
-  "tokens_out": 1830,
-  "total": 22,
+  "tokens_in": 38886,
+  "tokens_out": 1902,
+  "total": 23,
   "version": "0.1.0"
 }

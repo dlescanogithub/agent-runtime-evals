@@ -1,12 +1,15 @@
 from dataclasses import replace
+from pathlib import Path
 
 from agent_runtime.catalog import FlakyCatalog, OrderCatalog
 from agent_runtime.demo import DEMO_INPUT
+from agent_runtime.evalkit.cases import load_cassette
+from agent_runtime.providers.cassette import CassetteProvider
 from agent_runtime.providers.fake import FakeProvider
-from agent_runtime.runner import AgentRunner
+from agent_runtime.runner import AgentRunner, _refund_claim_error
 from agent_runtime.store import SQLiteStore
 from agent_runtime.tools import ToolService
-from agent_runtime.types import Completion, CompletionRequest, ToolCall
+from agent_runtime.types import Completion, CompletionRequest, StepRecord, ToolCall
 from agent_runtime.wiring import build_runner
 from tests.support import approve_until_done
 
@@ -127,6 +130,66 @@ def test_crash_after_the_effect_row_does_not_pay_twice(config) -> None:
     assert resumed.status == "completed"
     assert store.refunded_cents("LG-1001") == 4200
     assert store.count_effects("send_refund") == 1
+
+
+def test_refund_completed_without_an_effect_needs_review(config) -> None:
+    cassette = load_cassette(Path("tests/fixtures/false_refund.json"))
+    done = _runner(config, provider=CassetteProvider(cassette)).start(DEMO_INPUT)
+    assert done.status == "failed"
+    assert done.error is not None
+    assert done.error.startswith("needs_review")
+    assert done.output is not None
+    assert done.output["outcome"] == "refund_completed"
+    assert SQLiteStore(config.database_path).count_effects("send_refund") == 0
+
+
+def test_a_claimed_amount_must_match_the_effect() -> None:
+    step = StepRecord(
+        id="s",
+        run_id="r",
+        seq=1,
+        kind="tool",
+        name="send_refund",
+        status="succeeded",
+        input_json=(
+            '{"arguments":{"amount_cents":1000,"order_id":"LG-1001","reason":"damaged"},'
+            '"name":"send_refund","tool_call_id":"c"}'
+        ),
+        output_json='{"ok":true,"data":{"amount_cents":1000,"order_id":"LG-1001"}}',
+        idempotency_key="k",
+        attempt=1,
+        max_attempts=3,
+        latency_us=1,
+        tokens_in=0,
+        tokens_out=0,
+        cost_micro_usd=0,
+        error=None,
+        created_at="t",
+        updated_at="t",
+    )
+    error = _refund_claim_error(
+        [step],
+        {
+            "amount_cents": 4200,
+            "customer_summary": "processed",
+            "order_id": "LG-1001",
+            "outcome": "refund_completed",
+        },
+    )
+    assert error is not None
+    assert error.startswith("needs_review")
+    assert (
+        _refund_claim_error(
+            [step],
+            {
+                "amount_cents": 1000,
+                "customer_summary": "processed",
+                "order_id": "LG-1001",
+                "outcome": "refund_completed",
+            },
+        )
+        is None
+    )
 
 
 class _LoopingLookup:

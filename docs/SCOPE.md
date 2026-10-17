@@ -57,7 +57,7 @@ this repo.
 - Drafts in shadow did not violate policy on the 30-draft review. Not
   measured in this repo.
 - Cost per run is under a cap the customer sets. The stub's measured demo
-  cost is 348 micro-USD (2026-10-17, v0.1.0). A production cap is theirs
+  cost is 433 micro-USD (2026-10-17, v0.1.0, stub). A production cap is theirs
   to set. The code cap is `RUN_BUDGET_MICRO_USD`.
 
 **Stop the pilot if** any ungated effect is observed, or the reviewer rejects

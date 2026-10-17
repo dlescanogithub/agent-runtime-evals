@@ -40,9 +40,9 @@ rely on that.
 
 - The green suite shows the runtime against this stub. It does not show
   that a particular hosted model is safe.
-- Pointing the HTTP client at a hosted model is a configuration change.
-  It does not update the cassettes, and CI will keep replaying the old
-  ones. A live eval is future work.
-- The adversarial cassettes are this stub obeying the attack. They show
-  the controls stopping that stub. They do not prove a hosted model
-  behaves the same way.
+- Pointing the HTTP client at a hosted model is `make eval-live`. It writes
+  a separate cassette directory and does not replace the ones CI replays.
+- The adversarial gate checks invariants, not the stub's tool list. The
+  stub cassettes still obey the attack so the tools are exercised. A live
+  run on 2026-10-17 mostly ignored the injection, so those guards were
+  barely exercised against that model.

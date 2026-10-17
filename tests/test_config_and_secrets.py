@@ -82,6 +82,7 @@ def test_live_mode_converts_operator_prices_to_micro_usd() -> None:
     assert config.live.output_micro_usd_per_million == 2_000_000
     assert config.live.max_spend_micro_usd == 500_000
     assert config.live.price_date == "2026-01-15"
+    assert config.live.cached_input_micro_usd_per_million is None
     assert config.live.api_key == "test-key"
     assert config.live.max_output_tokens == 1024
 
@@ -96,3 +97,5 @@ def test_ci_workflow_does_not_enable_live_mode() -> None:
     text = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert "LIVE_MODE=1" not in text
     assert "LLM_API_KEY" not in text
+    assert "evalkit live" not in text
+    assert "eval-live" not in text
