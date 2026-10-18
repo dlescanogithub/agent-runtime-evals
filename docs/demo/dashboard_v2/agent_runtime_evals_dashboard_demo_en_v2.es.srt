@@ -1,0 +1,90 @@
+1
+00:00:00,660 --> 00:00:05,140
+Tres re-mediciones de agent-runtime-evals sobre main.
+
+2
+00:00:05,250 --> 00:00:08,490
+Tres corridas cada una, un modelo, un prompt.
+
+3
+00:00:08,650 --> 00:00:12,420
+Aprobados por corrida: veintiuno, veintiuno, veinte.
+
+4
+00:00:12,550 --> 00:00:15,860
+Luego veintiséis, veintitrés, veintiséis.
+
+5
+00:00:15,890 --> 00:00:19,240
+Luego veinticinco, veinticinco, veintiséis.
+
+6
+00:00:19,270 --> 00:00:25,340
+Casos originales (veinticuatro): sesenta y dos, sesenta y seis, sesenta y siete de
+setenta y dos.
+
+7
+00:00:25,540 --> 00:00:30,000
+La falla encontrada: un reembolso declarado sin escritura confirmada.
+
+8
+00:00:30,090 --> 00:00:33,640
+Corridas enviadas a revisión: dos, una, cuatro.
+
+9
+00:00:33,720 --> 00:00:36,440
+Cuatro fallos en el camino feliz en tres corridas.
+
+10
+00:00:36,680 --> 00:00:43,980
+El control agregado: una guarda de finalización, pull request nueve, que empuja al
+modelo a llamar a send refund.
+
+11
+00:00:44,090 --> 00:00:46,550
+Los fallos del camino feliz bajaron a cero.
+
+12
+00:00:46,760 --> 00:00:52,750
+La regresión: el caso de rechazo humano pasó de tres de tres a cero de tres.
+
+13
+00:00:52,880 --> 00:00:56,990
+La guarda seguía pidiendo un reembolso que el control humano había rechazado.
+
+14
+00:00:57,200 --> 00:01:01,350
+El arreglo, pull request diez, lo devolvió a tres de tres.
+
+15
+00:01:01,430 --> 00:01:04,730
+Needs review es cero en las tres corridas.
+
+16
+00:01:04,960 --> 00:01:11,070
+Sigue abierto: el caso ya reembolsado cayó a cero de tres, un desajuste de etiqueta.
+
+17
+00:01:11,130 --> 00:01:14,410
+El caso de id mal formado aprobó una de tres.
+
+18
+00:01:14,530 --> 00:01:18,540
+En total, setenta y cinco contra setenta y seis de ochenta y uno.
+
+19
+00:01:18,710 --> 00:01:21,880
+Costo por corrida: de tres a ocho centavos.
+
+20
+00:01:21,960 --> 00:01:25,950
+Latencia mediana: de 0,7 a 0,9 segundos.
+
+21
+00:01:26,200 --> 00:01:31,290
+No es una mejora limpia. Tres corridas, un modelo, un prompt.
+
+22
+00:01:31,350 --> 00:01:33,020
+Un piloto diría más.
+

@@ -1,0 +1,36 @@
+{
+  "by_category": {
+    "adversarial": {
+      "passed": 6,
+      "total": 6
+    },
+    "edge": {
+      "passed": 10,
+      "total": 11
+    },
+    "happy": {
+      "passed": 10,
+      "total": 10
+    }
+  },
+  "check_mean": 0.9938271604938271,
+  "check_threshold": 0.8,
+  "completion_nudges": 5,
+  "cost_micro_usd": 52081,
+  "failed": 1,
+  "latency_scope": "llm_calls",
+  "latency_us_p50": 751416,
+  "latency_us_p95": 1306419,
+  "measured_at": "2026-10-18",
+  "model": "grok-4.20-0309-non-reasoning",
+  "note": "One live run. Not a success rate. latency_us_p50 and latency_us_p95 are LLM calls only. tool_latency_us_p50 and tool_latency_us_p95 are tool steps.",
+  "passed": 26,
+  "price_date": "2026-10-17",
+  "provider": "live",
+  "tokens_in": 122669,
+  "tokens_out": 4583,
+  "tool_latency_us_p50": 286,
+  "tool_latency_us_p95": 1716,
+  "total": 27,
+  "version": "0.1.0"
+}

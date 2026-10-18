@@ -25,6 +25,8 @@ A 90-second demo, in English. It is a recording run through the real runner: a l
 - [English subtitles](docs/demo/agent_runtime_evals_demo_en_v3.en.srt)
 - [Spanish subtitles](docs/demo/agent_runtime_evals_demo_en_v3.es.srt)
 
+- **Dashboard demo: three live re-measures (94 s, English)**: [video](docs/demo/dashboard_v2/agent_runtime_evals_dashboard_demo_en_v2.mp4) (subtitles: [English](docs/demo/dashboard_v2/agent_runtime_evals_dashboard_demo_en_v2.en.srt), [Spanish](docs/demo/dashboard_v2/agent_runtime_evals_dashboard_demo_en_v2.es.srt), script: [SCRIPT.md](docs/demo/dashboard_v2/SCRIPT.md), trace: [evidence/number_trace.md](docs/demo/dashboard_v2/evidence/number_trace.md)). MEASURED 2026-10-18. Three runs per version, one model, one prompt. Not a clean improvement: which cases failed changed. Not a success rate. Same notes as [Failures found and what we changed](#failures-found-and-what-we-changed).
+
 ## Problem and result
 
 Lumen Goods (a fictional retailer) needs a refund assistant that cannot move
