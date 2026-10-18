@@ -218,18 +218,23 @@ not a success rate. The table in
 `3cbf6a7`. Raw logs are in [docs/live/](live/). A later rerun is a new row.
 That sample is not a measurement of the completion nudge.
 
-If the model finishes with `refund_completed` or `needs_ops` and no
-executed `send_refund` matches the order and amount, or a summary or sent
-email says the refund was processed, the runner does not accept the
-finish. It logs `completion_nudge` (JSON, `run_id` and `reason`, no
-customer text) and returns that JSON to the model. `MAX_COMPLETION_NUDGES`
-defaults to 2. Each nudge counts toward `MAX_AGENT_STEPS` and toward the
-run's token spend, because the next model call is priced. The runtime
-never inserts `send_refund` or `send_email` itself. When the cap is used
-up, the run fails with `needs_review`, same as before. `send_refund` with
-a reason other than the ticket's is `reason_mismatch`. `send_email` when
-that reason is not an allowed refund is `email_not_warranted`. Neither
-call opens the gate.
+If the model finishes with `refund_completed` and no executed `send_refund`
+matches, and this run has no human rejection of `send_refund` or
+`send_email` for that order, the runner does not accept the finish. It
+logs `completion_nudge` (JSON, `run_id` and `reason`, no customer text and
+no amount) and returns that JSON to the model. The text states the
+inconsistency. It does not name a reason or an amount. The model may
+propose a write the ticket and the policy allow, or correct the outcome
+to `denied` or `needs_ops`. `denied`, `needs_ops`, and `refund_rejected`
+are not nudged. `MAX_COMPLETION_NUDGES` defaults to 2. Each nudge counts
+toward `MAX_AGENT_STEPS` and toward the run's token spend, because the
+next model call is priced. The runtime never inserts `send_refund` or
+`send_email` itself. When the cap is used up, or a person already rejected
+the write and the model still says `refund_completed`, the run fails with
+`needs_review`. A stated request amount, including zero, is a ceiling
+(`above_requested`). `send_refund` with a reason other than the ticket's
+is `reason_mismatch`. `send_email` when that reason is not an allowed
+refund is `email_not_warranted`. Neither call opens the gate.
 
 `edge_human_reject` rejects at the gate. The other cases are approved.
 Adversarial cases, and these edge cases, score invariants:

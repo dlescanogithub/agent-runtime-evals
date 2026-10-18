@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from agent_runtime.config import Config
 from agent_runtime.errors import GateError, PermanentError, TransientError, ValidationError
@@ -443,12 +443,14 @@ class AgentRunner:
         steps = self._store.list_steps(run.id)
         blocked = _completion_block(steps, output)
         if blocked is not None:
-            claim, reason = blocked
-            if self._can_nudge(steps):
-                self._record_nudge(run, output, reason)
+            # A nudge is only for an unrejected refund_completed claim.
+            # needs_ops, denied, refund_rejected, and a gate rejection close
+            # without asking the model to try the write again.
+            if blocked.nudge and self._can_nudge(steps):
+                self._record_nudge(run, output, blocked.reason)
                 return None
             saved = self._store.save_run(
-                replace(run, status="failed", output_json=dumps(output), error=claim)
+                replace(run, status="failed", output_json=dumps(output), error=blocked.error)
             )
             log(logger, logging.INFO, "run_needs_review", run_id=run.id, error="needs_review")
             return self._outcome(saved)
@@ -469,7 +471,6 @@ class AgentRunner:
     def _record_nudge(self, run: RunRecord, output: dict[str, object], reason: str) -> None:
         index = sum(1 for step in self._store.list_steps(run.id) if step.kind == "nudge") + 1
         payload = {
-            "amount_cents": output.get("amount_cents"),
             "instruction": _nudge_instruction(reason),
             "max_nudges": self._config.max_completion_nudges,
             "nudge": index,
@@ -584,19 +585,60 @@ def _final_text(steps: list[StepRecord]) -> str | None:
     return completion.content or ""
 
 
-def _completion_block(steps: list[StepRecord], output: dict[str, object]) -> tuple[str, str] | None:
-    """The finish to refuse, and the nudge reason. None when it may complete."""
+@dataclass(frozen=True)
+class _BlockedFinish:
+    error: str
+    reason: str
+    nudge: bool
 
+
+def _completion_block(steps: list[StepRecord], output: dict[str, object]) -> _BlockedFinish | None:
+    """Refuse a false completion. Nudge only the narrow refund_completed case.
+
+    denied, needs_ops, refund_rejected, and any other non-refund outcome
+    are accepted unless the customer text claims a refund that did not
+    happen. A human rejection of send_refund or send_email for this order
+    is also not a nudge: asking again loops on the same gate.
+    """
+
+    if output.get("outcome") != "refund_completed":
+        text_error = _customer_text_claim_error(steps, output)
+        if text_error is not None:
+            return _BlockedFinish(text_error, "false_refund_claim", nudge=False)
+        return None
+    if _human_rejected_effect(steps, output.get("order_id")):
+        refund_error = _refund_claim_error(steps, output)
+        if refund_error is not None:
+            return _BlockedFinish(refund_error, "missing_send_refund", nudge=False)
+        text_error = _customer_text_claim_error(steps, output)
+        if text_error is not None:
+            return _BlockedFinish(text_error, "false_refund_claim", nudge=False)
+        return None
     refund_error = _refund_claim_error(steps, output)
     if refund_error is not None:
-        return refund_error, "missing_send_refund"
-    ops_error = _needs_ops_without_refund(steps, output)
-    if ops_error is not None:
-        return ops_error, "missing_send_refund"
+        return _BlockedFinish(refund_error, "missing_send_refund", nudge=True)
     text_error = _customer_text_claim_error(steps, output)
     if text_error is not None:
-        return text_error, "false_refund_claim"
+        return _BlockedFinish(text_error, "false_refund_claim", nudge=False)
     return None
+
+
+def _human_rejected_effect(steps: list[StepRecord], order_id: object) -> bool:
+    """True when a person already rejected a write for this order."""
+
+    for step in steps:
+        if step.status != "rejected" or step.name not in ("send_refund", "send_email"):
+            continue
+        if not isinstance(order_id, str):
+            return True
+        try:
+            wrapper = as_dict(loads(step.input_json))
+            arguments = as_dict(wrapper.get("arguments"))
+        except ValidationError:
+            return True
+        if arguments.get("order_id") == order_id:
+            return True
+    return False
 
 
 def _refund_claim_error(steps: list[StepRecord], output: dict[str, object]) -> str | None:
@@ -605,14 +647,6 @@ def _refund_claim_error(steps: list[StepRecord], output: dict[str, object]) -> s
     if output.get("outcome") != "refund_completed":
         return None
     return _missing_refund_message(steps, output, "refund_completed")
-
-
-def _needs_ops_without_refund(steps: list[StepRecord], output: dict[str, object]) -> str | None:
-    """needs_ops means the refund executed and the email did not."""
-
-    if output.get("outcome") != "needs_ops":
-        return None
-    return _missing_refund_message(steps, output, "needs_ops")
 
 
 def _missing_refund_message(
@@ -644,20 +678,17 @@ def _missing_refund_message(
 
 def _nudge_instruction(reason: str) -> str:
     if reason == "false_refund_claim":
-        return (
-            "Do not finish. The customer summary or an email says a refund was "
-            "processed or issued, and no confirmed send_refund matches this order "
-            "and amount. Do not say the refund was issued, processed, or completed. "
-            "The runtime will not create that write for you. Call send_refund only "
-            "when the ticket reason is allowed. Otherwise finish with outcome denied "
-            "and a summary that does not claim a refund."
+        observed = (
+            "The customer summary or an email says a refund was processed or "
+            "issued, and no confirmed send_refund matches."
         )
+    else:
+        observed = "The outcome says the refund is completed, and no confirmed send_refund matches."
     return (
-        "Do not finish. No confirmed send_refund matches this order and amount. "
-        "Call send_refund with the reason on the ticket and that amount, then "
-        "send_email only if the refund executes. The runtime will not create "
-        "that write for you. If the refund is not allowed, finish with outcome "
-        "denied and amount_cents null, and do not say a refund was processed."
+        f"{observed} That is inconsistent. The runtime will not create the write. "
+        "Two finishes are valid: propose the write this ticket and the policy allow, "
+        "or correct the outcome to denied or needs_ops when a refund is not warranted. "
+        "Do not claim the refund is completed until a confirmed write exists."
     )
 
 

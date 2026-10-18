@@ -339,6 +339,10 @@ def test_a_premature_refund_is_nudged_then_written(
         message.role == "user" and '"type":"completion_nudge"' in message.content
         for message in follow_up.messages
     )
+    nudge_body = nudges[0].output_json or ""
+    assert "amount_cents" not in nudge_body
+    assert "call send_refund with" not in nudge_body.lower()
+    assert "4200" not in nudge_body
     logged = [
         getattr(record, "extra_fields", {})
         for record in caplog.records
@@ -375,22 +379,168 @@ def test_nudge_cap_ends_in_needs_review_without_a_write(config) -> None:
     assert not any(step.name == "send_refund" for step in steps)
 
 
-def test_needs_ops_without_a_refund_is_not_accepted(config) -> None:
+def test_needs_ops_without_a_refund_is_not_nudged(config) -> None:
     class _AlwaysOps:
         name = "ops"
 
+        def __init__(self) -> None:
+            self.calls = 0
+
         def complete(self, request: CompletionRequest) -> Completion:
             del request
+            self.calls += 1
             return _completion(NEEDS_OPS)
 
-    done = _runner(config, provider=_AlwaysOps()).start(DEMO_INPUT)
+    provider = _AlwaysOps()
+    done = _runner(config, provider=provider).start(DEMO_INPUT)
+    store = SQLiteStore(config.database_path)
+    assert done.status == "completed"
+    assert done.output is not None
+    assert done.output["outcome"] == "needs_ops"
+    assert provider.calls == 1
+    assert store.count_effects("send_refund") == 0
+    assert sum(1 for step in store.list_steps(done.run_id) if step.kind == "nudge") == 0
+
+
+def test_refund_rejected_and_denied_are_not_nudged(config) -> None:
+    rejected = (
+        '{"amount_cents":null,"customer_summary":"A reviewer rejected the refund. '
+        'No money moved.","order_id":"LG-1001","outcome":"refund_rejected"}'
+    )
+    denied = (
+        '{"amount_cents":null,"customer_summary":"The refund was not executed.",'
+        '"order_id":"LG-1001","outcome":"denied"}'
+    )
+    for content in (rejected, denied):
+
+        class _Once:
+            name = "once"
+
+            def __init__(self, text: str) -> None:
+                self._text = text
+                self.calls = 0
+
+            def complete(self, request: CompletionRequest) -> Completion:
+                del request
+                self.calls += 1
+                return _completion(self._text)
+
+        provider = _Once(content)
+        done = _runner(config, provider=provider).start(DEMO_INPUT)
+        store = SQLiteStore(config.database_path)
+        assert done.status == "completed"
+        assert provider.calls == 1
+        assert store.count_effects("send_refund") == 0
+        assert sum(1 for step in store.list_steps(done.run_id) if step.kind == "nudge") == 0
+
+
+def test_a_human_rejection_then_needs_ops_is_not_nudged(config) -> None:
+    script = _Script(
+        [
+            _tool_completion("lookup_order", {"order_id": "LG-1001"}, "c1"),
+            _tool_completion("lookup_policy", {"reason": "damaged"}, "c2"),
+            _tool_completion(
+                "send_refund",
+                {"amount_cents": 4200, "order_id": "LG-1001", "reason": "damaged"},
+                "c3",
+            ),
+            _completion(NEEDS_OPS),
+        ]
+    )
+    runner = _runner(config, provider=script)
+    waiting = runner.start(DEMO_INPUT)
+    assert waiting.status == "waiting_review"
+    pending = waiting.pending[0]
+    runner.decide(waiting.run_id, pending.step_id, "reject", "Not this one.")
+    done = runner.resume(waiting.run_id)
+    store = SQLiteStore(config.database_path)
+    assert done.status == "completed"
+    assert done.output is not None
+    assert done.output["outcome"] == "needs_ops"
+    assert store.count_effects("send_refund") == 0
+    assert store.count_effects("send_email") == 0
+    assert sum(1 for step in store.list_steps(done.run_id) if step.kind == "nudge") == 0
+
+
+def test_a_rejected_refund_claimed_complete_is_not_nudged(config) -> None:
+    script = _Script(
+        [
+            _tool_completion("lookup_order", {"order_id": "LG-1001"}, "c1"),
+            _tool_completion("lookup_policy", {"reason": "damaged"}, "c2"),
+            _tool_completion(
+                "send_refund",
+                {"amount_cents": 4200, "order_id": "LG-1001", "reason": "damaged"},
+                "c3",
+            ),
+            _completion(CLAIM_DONE),
+        ]
+    )
+    runner = _runner(config, provider=script)
+    waiting = runner.start(DEMO_INPUT)
+    pending = waiting.pending[0]
+    runner.decide(waiting.run_id, pending.step_id, "reject", "Not this one.")
+    done = runner.resume(waiting.run_id)
     store = SQLiteStore(config.database_path)
     assert done.status == "failed"
     assert done.error is not None
     assert done.error.startswith("needs_review")
-    assert "needs_ops" in done.error
+    assert len(script.requests) == 4
     assert store.count_effects("send_refund") == 0
-    assert sum(1 for step in store.list_steps(done.run_id) if step.kind == "nudge") == 2
+    assert sum(1 for step in store.list_steps(done.run_id) if step.kind == "nudge") == 0
+
+
+def test_zero_amount_then_needs_ops_is_not_nudged(config) -> None:
+    ticket = {
+        "customer_message": "Please refund zero cents.",
+        "intent": "refund",
+        "order_id": "LG-1001",
+        "reason": "damaged",
+        "requested_amount_cents": 0,
+    }
+    quiet = (
+        '{"amount_cents":null,"customer_summary":"The amount is not valid. Nothing was sent.",'
+        '"order_id":"LG-1001","outcome":"needs_ops"}'
+    )
+    script = _Script(
+        [
+            _tool_completion("lookup_order", {"order_id": "LG-1001"}, "c1"),
+            _tool_completion("lookup_policy", {"reason": "damaged"}, "c2"),
+            _tool_completion(
+                "send_refund",
+                {"amount_cents": 0, "order_id": "LG-1001", "reason": "damaged"},
+                "c3",
+            ),
+            _completion(quiet),
+        ]
+    )
+    done = _runner(config, provider=script).start(ticket)
+    store = SQLiteStore(config.database_path)
+    refund = next(step for step in store.list_steps(done.run_id) if step.name == "send_refund")
+    assert done.status == "completed"
+    assert done.output is not None
+    assert done.output["outcome"] == "needs_ops"
+    assert refund.output_json is not None
+    assert "invalid_amount" in refund.output_json
+    assert store.count_effects("send_refund") == 0
+    assert store.count_effects("send_email") == 0
+    assert sum(1 for step in store.list_steps(done.run_id) if step.kind == "nudge") == 0
+
+
+def test_a_foreign_order_then_needs_ops_is_not_nudged(config) -> None:
+    script = _Script(
+        [
+            _tool_completion("lookup_order", {"order_id": "LG-1010"}, "c1"),
+            _completion(NEEDS_OPS),
+        ]
+    )
+    done = _runner(config, provider=script).start(DEMO_INPUT)
+    store = SQLiteStore(config.database_path)
+    assert done.status == "completed"
+    assert done.output is not None
+    assert done.output["outcome"] == "needs_ops"
+    assert store.count_effects("send_refund") == 0
+    assert not any(step.name == "send_refund" for step in store.list_steps(done.run_id))
+    assert sum(1 for step in store.list_steps(done.run_id) if step.kind == "nudge") == 0
 
 
 def test_a_false_refund_email_stays_blocked(config) -> None:

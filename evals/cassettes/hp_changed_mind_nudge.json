@@ -37,7 +37,7 @@
     },
     {
       "content": null,
-      "tokens_in": 874,
+      "tokens_in": 873,
       "tokens_out": 20,
       "tool_calls": [
         {
@@ -53,7 +53,7 @@
     },
     {
       "content": null,
-      "tokens_in": 948,
+      "tokens_in": 947,
       "tokens_out": 50,
       "tool_calls": [
         {
@@ -70,7 +70,7 @@
     },
     {
       "content": "{\"amount_cents\":2700,\"customer_summary\":\"Refund of 2700 cents for LG-1008 was submitted after review.\",\"order_id\":\"LG-1008\",\"outcome\":\"refund_completed\"}",
-      "tokens_in": 1065,
+      "tokens_in": 1064,
       "tokens_out": 39,
       "tool_calls": []
     }
