@@ -41,7 +41,7 @@ tokens) at the synthetic stub price in [docs/COST.md](docs/COST.md).
 
 `eval-measured: passed=24/24 tokens_in=41302 tokens_out=2026 cost_micro_usd=7371`
 
-## Demo
+## Run the demo locally
 
 ```bash
 make setup
