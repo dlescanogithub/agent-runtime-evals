@@ -104,7 +104,10 @@ one in `pricing.py`.
 The hosted sample in [LIVE_SAMPLES.md](LIVE_SAMPLES.md) is main `3cbf6a7`,
 command `PYTHONPATH=src python3 -m agent_runtime.evalkit live`, measured
 2026-10-18. Three runs, one prompt, not a success rate. An earlier 23-case
-sample (18/23, 18/23, 19/23) is labelled there as PR #1. The OpenAI and
+sample (18/23, 18/23, 19/23) is labelled there as PR #1. A later 27-case
+sample on main `684d7b7` (same date, same model, three runs, total
+US$0.164927) is in the README section "Failures found and what we changed".
+The row above stays the 24-case sample. The OpenAI and
 Anthropic adapters have not been called against those APIs from this
 repository. CI does not call any hosted API. See [RUNBOOK.md](RUNBOOK.md).
 

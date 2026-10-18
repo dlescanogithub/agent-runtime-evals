@@ -216,7 +216,10 @@ steps. The report also prints `completion_nudges`. Three runs, one prompt,
 not a success rate. The table in
 [docs/LIVE_SAMPLES.md](LIVE_SAMPLES.md) is the 2026-10-18 sample on main
 `3cbf6a7`. Raw logs are in [docs/live/](live/). A later rerun is a new row.
-That sample is not a measurement of the completion nudge.
+That sample is not a measurement of the completion nudge. A later
+three-run sample on main `684d7b7` is in the README section "Failures
+found and what we changed". Those logs are not in this repo. Three runs,
+one model, one prompt, not a success rate.
 
 If the model finishes with `refund_completed` and no executed `send_refund`
 matches, and this run has no human rejection of `send_refund` or

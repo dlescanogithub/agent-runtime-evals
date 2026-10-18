@@ -8,7 +8,9 @@ not an SLA. Measured 2026-10-18 outside CI, on main commit `3cbf6a7`
 
 This sample ran the golden set as it was on that commit: 24 cases
 (8 happy, 10 edge, 6 adversarial). Later cassette cases are not in these
-logs. Live effect of the completion nudge is not re-measured yet. The model is
+logs. A later three-run sample of the completion nudge, on main `684d7b7`,
+is in the README section "Failures found and what we changed". These logs
+are only the 24-case sample. The model is
 `grok-4.20-0309-non-reasoning`. The live gate requires 24/24, so each run
 prints `eval gate (live): FAIL` and the command exits 1.
 
