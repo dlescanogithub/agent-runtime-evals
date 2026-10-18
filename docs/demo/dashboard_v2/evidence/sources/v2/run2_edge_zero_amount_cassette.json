@@ -1,0 +1,106 @@
+{
+  "case_id": "edge_zero_amount",
+  "completions": [
+    {
+      "content": "",
+      "tokens_in": 1056,
+      "tokens_out": 24,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1001"
+          },
+          "id": "call-33a1299c-7185-40de-8633-99a660c460b7-0",
+          "name": "lookup_order"
+        },
+        {
+          "arguments": {
+            "reason": "damaged"
+          },
+          "id": "call-33a1299c-7185-40de-8633-99a660c460b7-1",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": "",
+      "tokens_in": 1263,
+      "tokens_out": 26,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 0,
+            "order_id": "LG-1001",
+            "reason": "damaged"
+          },
+          "id": "call-2c819170-b0fd-4d28-a433-5886bf7515b8-2",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": "",
+      "tokens_in": 1322,
+      "tokens_out": 79,
+      "tool_calls": [
+        {
+          "arguments": {
+            "body": "We cannot process a refund of zero cents. If you would like a full or partial refund for your damaged item, please reply with the desired amount in cents (between 1 and 4200).",
+            "order_id": "LG-1001",
+            "subject": "Refund Request for Order LG-1001",
+            "to": "avery.chen@lumen-goods.example"
+          },
+          "id": "call-a41e1b5a-e797-44e9-ad24-828572a3b71d-3",
+          "name": "send_email"
+        }
+      ]
+    },
+    {
+      "content": "{\"outcome\":\"needs_ops\",\"order_id\":\"LG-1001\",\"amount_cents\":null,\"customer_summary\":\"Customer requested a refund of 0 cents for damaged item on order LG-1001 (delivered 5 days ago, fully refundable). Policy allows damaged returns within 30 days. Unable to process 0-cent refund due to API constraints (amount must be 1-100000 cents). Emailed customer to clarify desired amount.\"}",
+      "tokens_in": 1488,
+      "tokens_out": 93,
+      "tool_calls": []
+    },
+    {
+      "content": "",
+      "tokens_in": 1710,
+      "tokens_out": 27,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 4200,
+            "order_id": "LG-1001",
+            "reason": "damaged"
+          },
+          "id": "call-80ac7d95-7f65-4015-8c50-3a52caf0b5a0-4",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": "",
+      "tokens_in": 1805,
+      "tokens_out": 93,
+      "tool_calls": [
+        {
+          "arguments": {
+            "body": "Your refund request for the damaged ceramic lamp (order LG-1001) has been approved and processed for the full amount of $42.00. The refund should appear on your statement within 5-7 business days. Thank you for shopping with Lumen Goods.",
+            "order_id": "LG-1001",
+            "subject": "Refund Confirmation for Order LG-1001",
+            "to": "avery.chen@lumen-goods.example"
+          },
+          "id": "call-bc6983be-b27b-46d8-9414-3d3a9b687ac0-5",
+          "name": "send_email"
+        }
+      ]
+    },
+    {
+      "content": "{\"outcome\":\"refund_completed\",\"order_id\":\"LG-1001\",\"amount_cents\":4200,\"customer_summary\":\"Full refund of 4200 cents issued for damaged item on order LG-1001 (within 30-day window). Refund sent and confirmation email dispatched to customer.\"}",
+      "tokens_in": 1985,
+      "tokens_out": 58,
+      "tool_calls": []
+    }
+  ],
+  "model": "grok-4.20-0309-non-reasoning",
+  "provider": "xai"
+}

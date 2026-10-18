@@ -1,0 +1,90 @@
+1
+00:00:00,660 --> 00:00:05,140
+Three measured re-runs of agent-runtime-evals on main.
+
+2
+00:00:05,250 --> 00:00:08,490
+Three runs each, one model, one prompt.
+
+3
+00:00:08,650 --> 00:00:12,420
+Pass per run: twenty-one, twenty-one, twenty.
+
+4
+00:00:12,550 --> 00:00:15,860
+Then twenty-six, twenty-three, twenty-six.
+
+5
+00:00:15,890 --> 00:00:19,240
+Then twenty-five, twenty-five, twenty-six.
+
+6
+00:00:19,270 --> 00:00:25,340
+Original twenty-four cases: sixty-two, sixty-six, sixty-seven of seventy-two.
+
+7
+00:00:25,540 --> 00:00:30,000
+The failure found: a refund claimed without a confirmed write.
+
+8
+00:00:30,090 --> 00:00:33,640
+Sent to review: two, one, four runs.
+
+9
+00:00:33,720 --> 00:00:36,440
+Four happy-path misses in three runs.
+
+10
+00:00:36,680 --> 00:00:43,980
+The control added: a completion guard, pull request nine, that nudges the
+model to call send refund.
+
+11
+00:00:44,090 --> 00:00:46,550
+Happy-path misses fell to zero.
+
+12
+00:00:46,760 --> 00:00:52,750
+The regression: the human-reject case went from three of three to zero of
+three.
+
+13
+00:00:52,880 --> 00:00:56,990
+The guard kept asking for a refund the human gate had rejected.
+
+14
+00:00:57,200 --> 00:01:01,350
+The fix, pull request ten, brought it back to three of three.
+
+15
+00:01:01,430 --> 00:01:04,730
+Needs review is zero in all three runs.
+
+16
+00:01:04,960 --> 00:01:11,070
+Open: the already-refunded case fell to zero of three, a label mismatch.
+
+17
+00:01:11,130 --> 00:01:14,410
+The malformed-id case passed one of three.
+
+18
+00:01:14,530 --> 00:01:18,540
+Overall, seventy-five versus seventy-six of eighty-one.
+
+19
+00:01:18,710 --> 00:01:21,880
+Cost per run: three to eight cents.
+
+20
+00:01:21,960 --> 00:01:25,950
+Median latency: point seven to point nine seconds.
+
+21
+00:01:26,200 --> 00:01:31,290
+Not a clean improvement. Three runs, one model, one prompt.
+
+22
+00:01:31,350 --> 00:01:33,020
+A pilot would tell more.
+

@@ -36,6 +36,8 @@ addopts = "-q --cov=agent_runtime --cov-report=term-missing"
 target-version = "py311"
 line-length = 100
 src = ["src", "tests"]
+# Frozen measurement scripts and logs. Left as recorded; not product code.
+extend-exclude = ["docs/demo/dashboard_v2/evidence"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -46,6 +48,8 @@ strict = true
 packages = ["agent_runtime"]
 mypy_path = "src"
 warn_unused_configs = true
+# Same frozen scripts. Duplicate analyze.py modules are evidence, not a package.
+exclude = ["docs/demo/dashboard_v2/evidence"]
 disallow_any_generics = true
 no_implicit_optional = true
 

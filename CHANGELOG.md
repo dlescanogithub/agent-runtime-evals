@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Docs only. Dashboard demo of the three live re-measures (94 s, English) under `docs/demo/dashboard_v2/`, with EN/ES subtitles, the script, and the number trace. MEASURED 2026-10-18. Three runs per version, one model, one prompt. Not a clean improvement, and not a success rate. No runtime change.
 - Docs only. Live re-measure on main `684d7b7` (2026-10-18,
   `grok-4.20-0309-non-reasoning`, 27 cases, three runs): 25/27, 25/27,
   26/27. Original 24 cases summed 67/72 (v1 62/72, v2 66/72). Happy-path
