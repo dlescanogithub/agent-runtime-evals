@@ -50,9 +50,9 @@ These inputs are a hypothetical discovery, not a measurement.
 | Model bill per day at 120 runs | USD 1.20 | [EST] |
 | Net before build cost and exceptions | about USD 290 / day | [EST] |
 
-The only money figure this repository measured is the stub. On 2026-10-17,
-version 0.1.0, model `stub-llm-v1`, one demo refund cost **433 micro-USD**
-and the 24-case suite cost **7371 micro-USD**. That price is synthetic
+The only money figure this repository measured is the stub. On 2026-10-18,
+version 0.1.0, model `stub-llm-v1`, one demo refund cost **584 micro-USD**
+and the 27-case suite cost **12118 micro-USD**. That price is synthetic
 ($0.15 / 1M input tokens, $0.60 / 1M output tokens). It is not an OpenAI,
 Anthropic, or other vendor invoice. See [COST.md](COST.md).
 

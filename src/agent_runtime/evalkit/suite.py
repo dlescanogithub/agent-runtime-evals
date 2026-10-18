@@ -55,6 +55,7 @@ class CaseResult:
     latency_us: list[int]
     tool_latency_us: list[int]
     tools: list[str]
+    completion_nudges: int
 
 
 @dataclass
@@ -75,6 +76,7 @@ class SuiteReport:
     by_category: dict[str, dict[str, int]]
     results: list[CaseResult]
     text: str
+    completion_nudges: int
 
 
 class RecordingProvider:
@@ -220,6 +222,7 @@ def write_live_report(report: SuiteReport, path: Path, model: str, price_date: s
     path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, object] = {
         "by_category": report.by_category,
+        "completion_nudges": report.completion_nudges,
         "cost_micro_usd": report.cost_micro_usd,
         "failed": report.failed,
         "check_mean": report.check_mean,
@@ -287,6 +290,7 @@ def _live_error(case: EvalCase, message: str) -> CaseResult:
         latency_us=[],
         tool_latency_us=[],
         tools=[],
+        completion_nudges=0,
     )
 
 
@@ -302,6 +306,7 @@ def write_report(report: SuiteReport, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, object] = {
         "by_category": report.by_category,
+        "completion_nudges": report.completion_nudges,
         "cost_micro_usd": report.cost_micro_usd,
         "failed": report.failed,
         "check_mean": report.check_mean,
@@ -363,6 +368,7 @@ def _run_case(
             step.latency_us for step in steps if step.kind == "tool" and step.latency_us is not None
         ],
         tools=tools,
+        completion_nudges=sum(1 for step in steps if step.kind == "nudge"),
     )
 
 
@@ -436,6 +442,7 @@ def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteRep
     tokens_in = sum(result.tokens_in for result in results)
     tokens_out = sum(result.tokens_out for result in results)
     cost = sum(result.cost_micro_usd for result in results)
+    completion_nudges = sum(result.completion_nudges for result in results)
     latencies = [value for result in results for value in result.latency_us]
     tool_latencies = [value for result in results for value in result.tool_latency_us]
     scores = [result.check_score for result in results]
@@ -458,7 +465,8 @@ def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteRep
             f"latency_us_p50={_percentile(latencies, 50)} "
             f"latency_us_p95={_percentile(latencies, 95)} (llm calls only) "
             f"tool_latency_us_p50={_percentile(tool_latencies, 50)} "
-            f"tool_latency_us_p95={_percentile(tool_latencies, 95)} (tool steps)"
+            f"tool_latency_us_p95={_percentile(tool_latencies, 95)} (tool steps) "
+            f"completion_nudges={completion_nudges}"
         ),
     ]
     for result in results:
@@ -485,6 +493,7 @@ def _report(results: list[CaseResult], threshold: float, label: str) -> SuiteRep
         by_category=by_category,
         results=results,
         text="\n".join(lines),
+        completion_nudges=completion_nudges,
     )
 
 

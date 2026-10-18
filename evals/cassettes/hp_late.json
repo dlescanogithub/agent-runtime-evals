@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 354,
+      "tokens_in": 510,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": null,
-      "tokens_in": 415,
+      "tokens_in": 571,
       "tokens_out": 8,
       "tool_calls": [
         {
@@ -31,7 +31,7 @@
     },
     {
       "content": null,
-      "tokens_in": 462,
+      "tokens_in": 696,
       "tokens_out": 18,
       "tool_calls": [
         {
@@ -47,7 +47,7 @@
     },
     {
       "content": null,
-      "tokens_in": 529,
+      "tokens_in": 764,
       "tokens_out": 48,
       "tool_calls": [
         {
@@ -64,7 +64,7 @@
     },
     {
       "content": "{\"amount_cents\":5100,\"customer_summary\":\"Refund of 5100 cents for LG-1007 was submitted after review.\",\"order_id\":\"LG-1007\",\"outcome\":\"refund_completed\"}",
-      "tokens_in": 644,
+      "tokens_in": 878,
       "tokens_out": 39,
       "tool_calls": []
     }

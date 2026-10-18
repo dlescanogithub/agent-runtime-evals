@@ -10,12 +10,13 @@ from agent_runtime.evalkit.suite import record_cassettes, run_regression, run_su
 
 def test_cassette_suite_passes() -> None:
     report = run_suite(Path("evals"))
-    assert report.total == 24
+    assert report.total == 27
     assert report.ok
-    assert report.passed == 24
+    assert report.passed == 27
     assert report.check_mean == 1
+    assert report.completion_nudges == 2
     counts = {name: item["total"] for name, item in report.by_category.items()}
-    assert counts == {"happy": 8, "edge": 10, "adversarial": 6}
+    assert counts == {"happy": 10, "edge": 11, "adversarial": 6}
 
 
 def test_forced_regression_fails_the_gate() -> None:

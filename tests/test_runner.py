@@ -256,6 +256,172 @@ class _LoopingLookup:
         )
 
 
+CLAIM_DONE = (
+    '{"amount_cents":4200,"customer_summary":"Your refund was processed.",'
+    '"order_id":"LG-1001","outcome":"refund_completed"}'
+)
+CLAIM_OK = (
+    '{"amount_cents":4200,"customer_summary":"Refund of 4200 cents for LG-1001 '
+    'was submitted after review.","order_id":"LG-1001","outcome":"refund_completed"}'
+)
+NEEDS_OPS = (
+    '{"amount_cents":4200,"customer_summary":"The refund executed and the email was not sent.",'
+    '"order_id":"LG-1001","outcome":"needs_ops"}'
+)
+
+
+def _completion(content: str) -> Completion:
+    return Completion(content=content, tool_calls=(), tokens_in=10, tokens_out=12)
+
+
+def _tool_completion(name: str, arguments: dict[str, object], call_id: str) -> Completion:
+    return Completion(
+        content=None,
+        tool_calls=(ToolCall(id=call_id, name=name, arguments=arguments),),
+        tokens_in=10,
+        tokens_out=8,
+    )
+
+
+class _Script:
+    name = "script"
+
+    def __init__(self, completions: list[Completion]) -> None:
+        self._completions = completions
+        self.requests: list[CompletionRequest] = []
+
+    def complete(self, request: CompletionRequest) -> Completion:
+        self.requests.append(request)
+        return self._completions[len(self.requests) - 1]
+
+
+def test_a_premature_refund_is_nudged_then_written(
+    config, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="agent_runtime.runner")
+    script = _Script(
+        [
+            _tool_completion("lookup_order", {"order_id": "LG-1001"}, "c1"),
+            _tool_completion("lookup_policy", {"reason": "damaged"}, "c2"),
+            _completion(CLAIM_DONE),
+            _tool_completion(
+                "send_refund",
+                {"amount_cents": 4200, "order_id": "LG-1001", "reason": "damaged"},
+                "c3",
+            ),
+            _tool_completion(
+                "send_email",
+                {
+                    "body": (
+                        "Your refund for order LG-1001 was approved. "
+                        "Amount: 4200 cents. Reason: damaged."
+                    ),
+                    "order_id": "LG-1001",
+                    "subject": "Refund for LG-1001",
+                    "to": "avery.chen@lumen-goods.example",
+                },
+                "c4",
+            ),
+            _completion(CLAIM_OK),
+        ]
+    )
+    runner = _runner(config, provider=script)
+    done = approve_until_done(runner, runner.start(DEMO_INPUT))
+    store = SQLiteStore(config.database_path)
+    nudges = [step for step in store.list_steps(done.run_id) if step.kind == "nudge"]
+    assert done.status == "completed"
+    assert store.count_effects("send_refund") == 1
+    assert store.count_effects("send_email") == 1
+    assert len(nudges) == 1
+    assert len([step for step in store.list_steps(done.run_id) if step.name == "send_refund"]) == 1
+    follow_up = script.requests[3]
+    assert any(
+        message.role == "user" and '"type":"completion_nudge"' in message.content
+        for message in follow_up.messages
+    )
+    logged = [
+        getattr(record, "extra_fields", {})
+        for record in caplog.records
+        if record.message == "completion_nudge"
+    ]
+    assert logged
+    assert logged[0]["run_id"] == done.run_id
+    assert logged[0]["reason"] == "missing_send_refund"
+    assert "order_id" not in logged[0]
+
+
+def test_nudge_cap_ends_in_needs_review_without_a_write(config) -> None:
+    class _AlwaysClaim:
+        name = "always"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, request: CompletionRequest) -> Completion:
+            del request
+            self.calls += 1
+            return _completion(CLAIM_DONE)
+
+    provider = _AlwaysClaim()
+    done = _runner(config, provider=provider).start(DEMO_INPUT)
+    store = SQLiteStore(config.database_path)
+    steps = store.list_steps(done.run_id)
+    assert done.status == "failed"
+    assert done.error is not None
+    assert done.error.startswith("needs_review")
+    assert provider.calls == 3
+    assert sum(1 for step in steps if step.kind == "nudge") == 2
+    assert store.count_effects("send_refund") == 0
+    assert not any(step.name == "send_refund" for step in steps)
+
+
+def test_needs_ops_without_a_refund_is_not_accepted(config) -> None:
+    class _AlwaysOps:
+        name = "ops"
+
+        def complete(self, request: CompletionRequest) -> Completion:
+            del request
+            return _completion(NEEDS_OPS)
+
+    done = _runner(config, provider=_AlwaysOps()).start(DEMO_INPUT)
+    store = SQLiteStore(config.database_path)
+    assert done.status == "failed"
+    assert done.error is not None
+    assert done.error.startswith("needs_review")
+    assert "needs_ops" in done.error
+    assert store.count_effects("send_refund") == 0
+    assert sum(1 for step in store.list_steps(done.run_id) if step.kind == "nudge") == 2
+
+
+def test_a_false_refund_email_stays_blocked(config) -> None:
+    script = _Script(
+        [
+            _tool_completion("lookup_order", {"order_id": "LG-1001"}, "c1"),
+            _tool_completion("lookup_policy", {"reason": "damaged"}, "c2"),
+            _tool_completion(
+                "send_email",
+                {
+                    "body": "Your refund was processed.",
+                    "order_id": "LG-1001",
+                    "subject": "Refund",
+                    "to": "avery.chen@lumen-goods.example",
+                },
+                "c3",
+            ),
+            _completion(FINAL_DENIAL),
+        ]
+    )
+    done = _runner(config, provider=script).start(DEMO_INPUT)
+    store = SQLiteStore(config.database_path)
+    email = next(step for step in store.list_steps(done.run_id) if step.name == "send_email")
+    assert done.status == "completed"
+    assert store.count_effects("send_email") == 0
+    assert store.count_effects("send_refund") == 0
+    assert email.output_json is not None
+    assert "false_refund_claim" in email.output_json
+    assert not any(step.kind == "nudge" for step in store.list_steps(done.run_id))
+
+
 class _BadEmail:
     name = "bad-email"
 

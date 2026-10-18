@@ -14,7 +14,7 @@ from agent_runtime.jsonutil import as_dict, as_int, as_list, as_str, dumps, load
 
 RunStatus = Literal["running", "waiting_review", "completed", "failed", "interrupted"]
 StepStatus = Literal["running", "succeeded", "failed", "waiting_review", "rejected", "approved"]
-StepKind = Literal["llm", "tool"]
+StepKind = Literal["llm", "tool", "nudge"]
 Role = Literal["system", "user", "assistant", "tool"]
 
 RUN_STATUSES: frozenset[str] = frozenset(
@@ -129,7 +129,7 @@ def require_step_status(value: str) -> StepStatus:
 
 
 def require_step_kind(value: str) -> StepKind:
-    if value not in ("llm", "tool"):
+    if value not in ("llm", "tool", "nudge"):
         raise StoreError(f"unknown step kind: {value}")
     return value  # type: ignore[return-value]
 

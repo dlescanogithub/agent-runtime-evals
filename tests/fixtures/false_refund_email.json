@@ -49,6 +49,18 @@
       "tokens_in": 10,
       "tokens_out": 12,
       "tool_calls": []
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"Your refund of 0 cents was processed.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
+      "tokens_in": 10,
+      "tokens_out": 12,
+      "tool_calls": []
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"Your refund of 0 cents was processed.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
+      "tokens_in": 10,
+      "tokens_out": 12,
+      "tool_calls": []
     }
   ]
 }

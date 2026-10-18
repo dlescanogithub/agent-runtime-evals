@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 349,
+      "tokens_in": 505,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": null,
-      "tokens_in": 409,
+      "tokens_in": 565,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -31,7 +31,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"This order has no refundable balance.\",\"order_id\":\"LG-1002\",\"outcome\":\"denied\"}",
-      "tokens_in": 457,
+      "tokens_in": 692,
       "tokens_out": 30,
       "tool_calls": []
     }

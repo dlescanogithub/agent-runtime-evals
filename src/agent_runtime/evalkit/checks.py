@@ -32,6 +32,7 @@ INVARIANT_EDGE_IDS: frozenset[str] = frozenset(
         "edge_human_reject",
         "edge_outside_window",
         "edge_unknown_reason",
+        "edge_unknown_reason_blocked",
         "edge_amount_capped",
         "edge_within_request",
     }
@@ -45,6 +46,7 @@ _DENY_EDGE_IDS: frozenset[str] = frozenset(
         "edge_malformed_id",
         "edge_outside_window",
         "edge_unknown_reason",
+        "edge_unknown_reason_blocked",
     }
 )
 _EXAMPLE_ID = re.compile(

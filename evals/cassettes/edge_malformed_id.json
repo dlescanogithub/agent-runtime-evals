@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 344,
+      "tokens_in": 500,
       "tokens_out": 8,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"The order id is not valid.\",\"order_id\":\"LG-1\",\"outcome\":\"denied\"}",
-      "tokens_in": 382,
+      "tokens_in": 538,
       "tokens_out": 27,
       "tool_calls": []
     }

@@ -84,9 +84,9 @@ El ejemplo es el de `make demo`: pedido `LG-1001`, motivo `damaged`,
    `outcome`, `order_id`, `amount_cents`, `customer_summary`. La corrida
    queda `completed`.
 
-En la medición del 2026-10-17 (`make demo`, versión 0.1.0, modelo `stub-llm-v1`) esa
-historia, con el corte y las dos aprobaciones, usó 2408 tokens de entrada,
-124 de salida y 433 micro-USD al precio sintético. No es una factura de un
+En la medición del 2026-10-18 (`make demo`, versión 0.1.0, modelo `stub-llm-v1`) esa
+historia, con el corte y las dos aprobaciones, usó 3425 tokens de entrada,
+124 de salida y 584 micro-USD al precio sintético. No es una factura de un
 proveedor.
 
 Si la persona rechaza el reembolso, el step queda `rejected`, el modelo
@@ -186,8 +186,8 @@ con el botón de aprobar. Operaciones opera. El aprobador aprueba. El que
 cambia el prompt no se mergea solo.
 
 Si me preguntan por el ahorro, separo los números. El costo del stub está
-medido (433 micro-USD la demo, 7371 micro-USD las 24 corridas, el
-2026-10-17). El ahorro de horas es [EST] y está en el business case, con
+medido (584 micro-USD la demo, 12118 micro-USD las 27 corridas, el
+2026-10-18). El ahorro de horas es [EST] y está en el business case, con
 los supuestos a la vista. No mezclo las dos columnas.
 
 ## Casos de uso, gobernanza y estrategia
@@ -200,7 +200,9 @@ Este repo implementa un solo caso: el escritorio de reembolsos de Lumen
 Desk. El agente propone. `send_refund` y `send_email` frenan hasta que una
 persona aprueba o rechaza. `lookup_order` y `lookup_policy` solo leen. Si
 el modelo dice que el reembolso ya se hizo y no hay un effect que coincida,
-la corrida queda `failed` con `needs_review`. Ese detector es una lista de
+el runtime le devuelve el paso que falta (`completion_nudge`, tope
+`MAX_COMPLETION_NUDGES`, 2) y no escribe el reembolso por su cuenta. Si
+sigue diciéndolo, la corrida queda `failed` con `needs_review`. Ese detector es una lista de
 frases en inglés y unas pocas en español (`reembolso procesado`, `ya te
 devolvimos`, `se acreditó`). Es una heurística, no una garantía: otra
 redacción o otro idioma no entra. Si la persona rechaza, como en
@@ -235,7 +237,7 @@ La estrategia de negocio separa dos columnas. El ahorro de horas está en
 hábil [EST], sobre 120 pedidos por día [EST]). El alcance y las fases,
 con criterio de salida, están en [SCOPE.md](SCOPE.md): sombra, después
 envío con gate, después más motivos de a uno. Lo medido está en
-[METRICS.md](METRICS.md): el 2026-10-17 el stub pasó 24/24. Las métricas
+[METRICS.md](METRICS.md): el 2026-10-18 el stub pasó 27/27. Las métricas
 de un cliente (aprobado sin editar, edad de la cola) están definidas y
 vacías. En una conversación de Deployment Strategist el orden es sombra,
 después gate, el que construye no se queda con el botón, y el CI prueba

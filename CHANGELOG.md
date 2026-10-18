@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- A finish that claims a refund without a matching executed `send_refund`
+  is not accepted. The runner logs `completion_nudge` (`run_id`, `reason`)
+  and hands the missing step back, up to `MAX_COMPLETION_NUDGES` (default
+  2). Nudges count in the step budget and in the suite report. After the
+  cap the run is still `needs_review`. The runtime does not create the
+  write. `send_refund` must use the ticket reason (`reason_mismatch`).
+  `send_email` is refused when that reason is not an allowed refund
+  (`email_not_warranted`), including after `lookup_policy` says the reason
+  is unknown. Three cassette cases cover the 2026-10-18 live misses
+  (stop after `lookup_policy`, and a substituted reason plus an email).
+  Golden expectations were not weakened. Stub suite on 2026-10-18:
+  27/27, 71362 / 2453 tokens, 12118 micro-USD, `completion_nudges=2`.
+  Demo: 3425 / 124 tokens, 584 micro-USD. Live effect not re-measured yet.
 - Docs only. Live sample on main `3cbf6a7` (2026-10-18,
   `grok-4.20-0309-non-reasoning`, 24 cases): 21/24, 21/24, 20/24. Raw logs
   in `docs/live/`. This is not a clean improvement on the earlier 23-case
