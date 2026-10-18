@@ -206,11 +206,15 @@ def test_zero_amount_false_claim_fails_the_case(tmp_path: Path) -> None:
             "to": "avery.chen@lumen-goods.example",
         },
     )
+    claim = Completion(content=final, tool_calls=(), tokens_in=4, tokens_out=8)
     completions = (
         _call("lookup_order", {"order_id": "LG-1001"}),
         _call("lookup_policy", {"reason": "damaged"}),
         Completion(content=None, tool_calls=(email,), tokens_in=4, tokens_out=8),
-        Completion(content=final, tool_calls=(), tokens_in=4, tokens_out=8),
+        # Two nudges, then the same false claim is needs_review.
+        claim,
+        claim,
+        claim,
     )
     result = _run_case(case, CassetteProvider(completions), Config.from_env({}), tmp_path)
     assert not result.passed

@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 362,
+      "tokens_in": 518,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": null,
-      "tokens_in": 423,
+      "tokens_in": 579,
       "tokens_out": 31,
       "tool_calls": [
         {
@@ -34,7 +34,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"The email was rejected. No message was sent.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
-      "tokens_in": 482,
+      "tokens_in": 638,
       "tokens_out": 32,
       "tool_calls": []
     }

@@ -66,6 +66,9 @@ class Config:
     api_host: str
     api_port: int
     api_token: str | None
+    # Premature "refund completed" replies get this many corrections, then
+    # needs_review. The runtime never writes the refund itself.
+    max_completion_nudges: int = 2
 
     @staticmethod
     def from_env(environ: dict[str, str] | None = None) -> Config:
@@ -86,6 +89,9 @@ class Config:
                 env.get("CIRCUIT_BREAKER_THRESHOLD", "3"), "CIRCUIT_BREAKER_THRESHOLD"
             ),
             max_agent_steps=_int(env.get("MAX_AGENT_STEPS", "8"), "MAX_AGENT_STEPS"),
+            max_completion_nudges=_int(
+                env.get("MAX_COMPLETION_NUDGES", "2"), "MAX_COMPLETION_NUDGES"
+            ),
             retry_backoff_ms=_int(env.get("RETRY_BACKOFF_MS", "0"), "RETRY_BACKOFF_MS"),
             log_level=env.get("LOG_LEVEL", "INFO"),
             api_host=env.get("API_HOST", "127.0.0.1"),

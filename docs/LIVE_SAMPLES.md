@@ -6,7 +6,9 @@ not an SLA. Measured 2026-10-18 outside CI, on main commit `3cbf6a7`
 0.1.0. Command and prices: [live/README.md](live/README.md). Raw logs:
 [live/run1](live/run1), [live/run2](live/run2), [live/run3](live/run3).
 
-The golden set is 24 cases: 8 happy, 10 edge, 6 adversarial. The model is
+This sample ran the golden set as it was on that commit: 24 cases
+(8 happy, 10 edge, 6 adversarial). Later cassette cases are not in these
+logs. Live effect of the completion nudge is not re-measured yet. The model is
 `grok-4.20-0309-non-reasoning`. The live gate requires 24/24, so each run
 prints `eval gate (live): FAIL` and the command exits 1.
 

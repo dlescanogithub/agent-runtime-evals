@@ -5,29 +5,30 @@
       "total": 6
     },
     "edge": {
-      "passed": 10,
-      "total": 10
+      "passed": 11,
+      "total": 11
     },
     "happy": {
-      "passed": 8,
-      "total": 8
+      "passed": 10,
+      "total": 10
     }
   },
   "check_mean": 1.0,
   "check_threshold": 0.8,
-  "cost_micro_usd": 7371,
+  "completion_nudges": 2,
+  "cost_micro_usd": 12118,
   "failed": 0,
   "latency_scope": "llm_calls",
   "latency_us_p50": 1,
   "latency_us_p95": 1,
-  "measured_at": "2026-10-17",
+  "measured_at": "2026-10-18",
   "model": "stub-llm-v1",
-  "passed": 24,
+  "passed": 27,
   "provider": "cassette",
-  "tokens_in": 41302,
-  "tokens_out": 2026,
+  "tokens_in": 71362,
+  "tokens_out": 2453,
   "tool_latency_us_p50": 204,
-  "tool_latency_us_p95": 1492,
-  "total": 24,
+  "tool_latency_us_p95": 1902,
+  "total": 27,
   "version": "0.1.0"
 }

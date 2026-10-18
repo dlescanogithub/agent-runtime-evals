@@ -186,10 +186,15 @@ class AgentRunner:
 
             final_text = _final_text(steps)
             if final_text is not None:
-                return self._complete_from_model(run, final_text)
+                finished = self._complete_from_model(run, final_text)
+                if finished is not None:
+                    return finished
+                continue
 
-            llm_turns = sum(1 for step in steps if step.kind == "llm")
-            if llm_turns >= self._config.max_agent_steps:
+            # A nudge is a step. It spends the same budget as a model turn
+            # so a correction cannot run for free.
+            accounted = sum(1 for step in steps if step.kind in ("llm", "nudge"))
+            if accounted >= self._config.max_agent_steps:
                 return self._fail(run, "max_steps")
 
             failed = self._llm_turn(run, steps)
@@ -426,19 +431,22 @@ class AgentRunner:
         )
         return None
 
-    def _complete_from_model(self, run: RunRecord, content: str) -> RunOutcome:
+    def _complete_from_model(self, run: RunRecord, content: str) -> RunOutcome | None:
         try:
             output = _parse_final(content)
         except ValidationError as exc:
             return self._fail(run, "invalid_final_output", str(exc))
         # A model can say the refund happened without calling send_refund,
         # including inside an email the final outcome does not mention.
-        # That used to close the run as completed. It is a failed review.
+        # That must not close the run as completed. Under the cap we hand
+        # the missing step back and keep going. We never insert the write.
         steps = self._store.list_steps(run.id)
-        claim = _refund_claim_error(steps, output)
-        if claim is None:
-            claim = _customer_text_claim_error(steps, output)
-        if claim is not None:
+        blocked = _completion_block(steps, output)
+        if blocked is not None:
+            claim, reason = blocked
+            if self._can_nudge(steps):
+                self._record_nudge(run, output, reason)
+                return None
             saved = self._store.save_run(
                 replace(run, status="failed", output_json=dumps(output), error=claim)
             )
@@ -449,6 +457,50 @@ class AgentRunner:
         )
         log(logger, logging.INFO, "run_completed", run_id=run.id, outcome=output.get("outcome"))
         return self._outcome(saved)
+
+    def _can_nudge(self, steps: list[StepRecord]) -> bool:
+        nudges = sum(1 for step in steps if step.kind == "nudge")
+        if nudges >= self._config.max_completion_nudges:
+            return False
+        # The nudge itself counts, and one more model turn has to fit after it.
+        accounted = sum(1 for step in steps if step.kind in ("llm", "nudge"))
+        return accounted + 1 < self._config.max_agent_steps
+
+    def _record_nudge(self, run: RunRecord, output: dict[str, object], reason: str) -> None:
+        index = sum(1 for step in self._store.list_steps(run.id) if step.kind == "nudge") + 1
+        payload = {
+            "amount_cents": output.get("amount_cents"),
+            "instruction": _nudge_instruction(reason),
+            "max_nudges": self._config.max_completion_nudges,
+            "nudge": index,
+            "order_id": output.get("order_id"),
+            "outcome": output.get("outcome"),
+            "reason": reason,
+            "type": "completion_nudge",
+        }
+        self._store.insert_step(
+            NewStep(
+                run_id=run.id,
+                kind="nudge",
+                name="completion_nudge",
+                status="succeeded",
+                input_json=dumps({"reason": reason, "refused_outcome": output.get("outcome")}),
+                output_json=dumps(payload),
+                idempotency_key=f"{run.id}:nudge:{index}",
+                max_attempts=1,
+                attempt=1,
+            )
+        )
+        # No order id, summary, or email body. The model-facing JSON has those.
+        log(
+            logger,
+            logging.INFO,
+            "completion_nudge",
+            run_id=run.id,
+            reason=reason,
+            nudge=index,
+            outcome=output.get("outcome"),
+        )
 
     def _fail(self, run: RunRecord, code: str, detail: str | None = None) -> RunOutcome:
         message = code if detail is None else f"{code}: {detail}"
@@ -532,18 +584,48 @@ def _final_text(steps: list[StepRecord]) -> str | None:
     return completion.content or ""
 
 
+def _completion_block(steps: list[StepRecord], output: dict[str, object]) -> tuple[str, str] | None:
+    """The finish to refuse, and the nudge reason. None when it may complete."""
+
+    refund_error = _refund_claim_error(steps, output)
+    if refund_error is not None:
+        return refund_error, "missing_send_refund"
+    ops_error = _needs_ops_without_refund(steps, output)
+    if ops_error is not None:
+        return ops_error, "missing_send_refund"
+    text_error = _customer_text_claim_error(steps, output)
+    if text_error is not None:
+        return text_error, "false_refund_claim"
+    return None
+
+
 def _refund_claim_error(steps: list[StepRecord], output: dict[str, object]) -> str | None:
     """refund_completed is allowed only when that refund effect executed."""
 
     if output.get("outcome") != "refund_completed":
         return None
+    return _missing_refund_message(steps, output, "refund_completed")
+
+
+def _needs_ops_without_refund(steps: list[StepRecord], output: dict[str, object]) -> str | None:
+    """needs_ops means the refund executed and the email did not."""
+
+    if output.get("outcome") != "needs_ops":
+        return None
+    return _missing_refund_message(steps, output, "needs_ops")
+
+
+def _missing_refund_message(
+    steps: list[StepRecord], output: dict[str, object], outcome_name: str
+) -> str | None:
+    message = (
+        f"needs_review: outcome {outcome_name} but no executed send_refund "
+        "effect matches this order and amount"
+    )
     order_id = output.get("order_id")
     amount = output.get("amount_cents")
     if not isinstance(order_id, str) or not isinstance(amount, int) or isinstance(amount, bool):
-        return (
-            "needs_review: outcome refund_completed but no executed send_refund "
-            "effect matches this order and amount"
-        )
+        return message
     for step in steps:
         if step.kind != "tool" or step.name != "send_refund" or step.output_json is None:
             continue
@@ -557,9 +639,25 @@ def _refund_claim_error(steps: list[StepRecord], output: dict[str, object]) -> s
             continue
         if arguments.get("order_id") == order_id and arguments.get("amount_cents") == amount:
             return None
+    return message
+
+
+def _nudge_instruction(reason: str) -> str:
+    if reason == "false_refund_claim":
+        return (
+            "Do not finish. The customer summary or an email says a refund was "
+            "processed or issued, and no confirmed send_refund matches this order "
+            "and amount. Do not say the refund was issued, processed, or completed. "
+            "The runtime will not create that write for you. Call send_refund only "
+            "when the ticket reason is allowed. Otherwise finish with outcome denied "
+            "and a summary that does not claim a refund."
+        )
     return (
-        "needs_review: outcome refund_completed but no executed send_refund "
-        "effect matches this order and amount"
+        "Do not finish. No confirmed send_refund matches this order and amount. "
+        "Call send_refund with the reason on the ticket and that amount, then "
+        "send_email only if the refund executes. The runtime will not create "
+        "that write for you. If the refund is not allowed, finish with outcome "
+        "denied and amount_cents null, and do not say a refund was processed."
     )
 
 

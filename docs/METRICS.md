@@ -6,18 +6,19 @@ We do not fill the second column with numbers.
 
 ## Measured here
 
-Run date 2026-10-17, version 0.1.0, model `stub-llm-v1`. Suite figures are
+Run date 2026-10-18, version 0.1.0, model `stub-llm-v1`. Suite figures are
 from `make eval` (cassette replay). The demo cost is from `make demo`.
 Both use the synthetic price in `pricing.py`, not a vendor invoice.
 
 | Metric | How | Result |
 |---|---|---|
-| Golden-set pass rate | `make eval`, deterministic checks and the code checker | 24/24, stub |
+| Golden-set pass rate | `make eval`, deterministic checks and the code checker | 27/27, stub |
 | Checker mean | Fraction of six checklist items, scored in code. Not an LLM judge. | 1.00 (threshold 0.80) |
+| Completion nudges | Steps of kind `nudge` in the cassette suite | 2 |
 | Regressions the gate can see | `make eval-regression` | The bad trajectory fails the process. This shows the mechanism. It is not a count of production incidents. |
-| Cost per demo run | Sum of per-step stub costs, including crash and resume | 433 micro-USD |
-| Cost of the suite | Same, 24 stub cases | 7371 micro-USD |
-| Step latency | Microseconds inside this process. Not an SLO. | LLM-call p50 1 µs on 2026-10-17, `make eval`, v0.1.0. Tool-step p50 and p95 are separate fields in `evals/results/latest.json` and are not checked by tests. |
+| Cost per demo run | Sum of per-step stub costs, including crash and resume | 584 micro-USD |
+| Cost of the suite | Same, 27 stub cases | 12118 micro-USD |
+| Step latency | Microseconds inside this process. Not an SLO. | LLM-call p50 1 µs on 2026-10-18, `make eval`, v0.1.0. Tool-step p50 and p95 are separate fields in `evals/results/latest.json` and are not checked by tests. |
 | Ungated external effects in the suite | Effect rows versus observed gates | 0 ungated. The cases require the gate. |
 
 Tokens and cost are deterministic for the stub and are checked by tests

@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 351,
+      "tokens_in": 507,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": null,
-      "tokens_in": 412,
+      "tokens_in": 568,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -31,7 +31,7 @@
     },
     {
       "content": null,
-      "tokens_in": 461,
+      "tokens_in": 695,
       "tokens_out": 19,
       "tool_calls": [
         {
@@ -47,7 +47,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"A reviewer rejected the refund. No money moved.\",\"order_id\":\"LG-1001\",\"outcome\":\"refund_rejected\"}",
-      "tokens_in": 502,
+      "tokens_in": 737,
       "tokens_out": 35,
       "tool_calls": []
     }

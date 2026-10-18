@@ -38,4 +38,8 @@ def build_request(user_json: str, steps: list[StepRecord], run_id: str = "") -> 
                     tool_call_id=as_str(payload.get("tool_call_id"), "tool_call_id"),
                 )
             )
+        elif step.kind == "nudge":
+            # A later system message is not reliable across providers. The
+            # nudge is a user turn whose body is the JSON correction.
+            messages.append(Message(role="user", content=step.output_json))
     return CompletionRequest(messages=tuple(messages), tool_names=TOOL_NAMES, run_id=run_id)

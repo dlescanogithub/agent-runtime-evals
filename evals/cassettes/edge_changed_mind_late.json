@@ -3,7 +3,7 @@
   "completions": [
     {
       "content": null,
-      "tokens_in": 355,
+      "tokens_in": 511,
       "tokens_out": 9,
       "tool_calls": [
         {
@@ -17,7 +17,7 @@
     },
     {
       "content": null,
-      "tokens_in": 417,
+      "tokens_in": 573,
       "tokens_out": 10,
       "tool_calls": [
         {
@@ -31,7 +31,7 @@
     },
     {
       "content": "{\"amount_cents\":null,\"customer_summary\":\"The changed_mind window is 14 days and this order is older.\",\"order_id\":\"LG-1009\",\"outcome\":\"denied\"}",
-      "tokens_in": 468,
+      "tokens_in": 702,
       "tokens_out": 36,
       "tool_calls": []
     }

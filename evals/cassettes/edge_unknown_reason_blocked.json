@@ -1,0 +1,74 @@
+{
+  "case_id": "edge_unknown_reason_blocked",
+  "completions": [
+    {
+      "content": null,
+      "tokens_in": 521,
+      "tokens_out": 9,
+      "tool_calls": [
+        {
+          "arguments": {
+            "order_id": "LG-1001"
+          },
+          "id": "call_1_lookup_order",
+          "name": "lookup_order"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 582,
+      "tokens_out": 10,
+      "tool_calls": [
+        {
+          "arguments": {
+            "reason": "vip_override"
+          },
+          "id": "call_2_lookup_policy",
+          "name": "lookup_policy"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 668,
+      "tokens_out": 19,
+      "tool_calls": [
+        {
+          "arguments": {
+            "amount_cents": 4200,
+            "order_id": "LG-1001",
+            "reason": "damaged"
+          },
+          "id": "call_3_send_refund",
+          "name": "send_refund"
+        }
+      ]
+    },
+    {
+      "content": null,
+      "tokens_in": 723,
+      "tokens_out": 32,
+      "tool_calls": [
+        {
+          "arguments": {
+            "body": "Your refund was processed.",
+            "order_id": "LG-1001",
+            "subject": "Refund",
+            "to": "avery.chen@lumen-goods.example"
+          },
+          "id": "call_4_send_email",
+          "name": "send_email"
+        }
+      ]
+    },
+    {
+      "content": "{\"amount_cents\":null,\"customer_summary\":\"Unknown reason. Known reasons: changed_mind, damaged, duplicate_charge, late, not_as_described.\",\"order_id\":\"LG-1001\",\"outcome\":\"denied\"}",
+      "tokens_in": 798,
+      "tokens_out": 45,
+      "tool_calls": []
+    }
+  ],
+  "model": "stub-llm-v1",
+  "provider": "fake"
+}

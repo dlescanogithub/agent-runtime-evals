@@ -76,6 +76,9 @@ class ToolService:
             error = _validate_send_refund(arguments)
             if error is not None:
                 return error
+            mismatch = self._reason_guard(run_id, arguments)
+            if mismatch is not None:
+                return mismatch
             capped = self._above_requested(run_id, arguments)
             if capped is not None:
                 return capped
@@ -84,6 +87,9 @@ class ToolService:
             error = self._validate_send_email(arguments, run_id)
             if error is not None:
                 return error
+            unwarranted = self._email_not_warranted(run_id, arguments)
+            if unwarranted is not None:
+                return unwarranted
             return self._ticket_guard(run_id, arguments)
         return fail("unknown_tool", f"Unknown tool: {name}")
 
@@ -98,11 +104,17 @@ class ToolService:
         if name == "lookup_policy":
             return _lookup_policy(arguments)
         if name == "send_refund":
+            mismatch = self._reason_guard(run_id, arguments)
+            if mismatch is not None:
+                return mismatch
             return self._send_refund(arguments, run_id)
         if name == "send_email":
             guard = self._ticket_guard(run_id, arguments)
             if guard is not None:
                 return guard
+            unwarranted = self._email_not_warranted(run_id, arguments)
+            if unwarranted is not None:
+                return unwarranted
             claim = self._false_refund_email(arguments, run_id)
             if claim is not None:
                 return claim
@@ -294,6 +306,67 @@ class ToolService:
             )
         return None
 
+    def _ticket(self, run_id: str) -> dict[str, object]:
+        return as_dict(loads(self._store.get_run(run_id).input_json))
+
+    def _reason_guard(
+        self, run_id: str | None, arguments: dict[str, object]
+    ) -> dict[str, object] | None:
+        """The model may not relabel the ticket reason to one the policy allows."""
+
+        if run_id is None:
+            return None
+        ticket_reason = self._ticket(run_id).get("reason")
+        argued = arguments.get("reason")
+        if not isinstance(ticket_reason, str) or not ticket_reason:
+            return None
+        if argued == ticket_reason:
+            return None
+        return fail(
+            "reason_mismatch",
+            "reason must be the reason on the ticket. Do not substitute a different policy reason.",
+        )
+
+    def _email_not_warranted(
+        self, run_id: str | None, arguments: dict[str, object]
+    ) -> dict[str, object] | None:
+        """No customer email when this ticket's reason is not an allowed refund."""
+
+        if run_id is None:
+            return None
+        ticket = self._ticket(run_id)
+        reason = ticket.get("reason")
+        if not isinstance(reason, str) or not reason:
+            return None
+        order_id = arguments.get("order_id")
+        if not isinstance(order_id, str):
+            return None
+        # A refund that already executed in this run is the reason to email.
+        # Checking the balance after that write would look like "already
+        # refunded" and would block the receipt.
+        if refund_effect_matches(self._store.list_steps(run_id), order_id, None):
+            return None
+        order = self._catalog.get(order_id)
+        requested = ticket.get("requested_amount_cents")
+        amount = requested if isinstance(requested, int) and not isinstance(requested, bool) else 1
+        if amount < 1:
+            amount = 1
+        view = None
+        if order is not None:
+            already = self._store.refunded_cents(order_id)
+            view = OrderView(
+                refundable_cents=max(0, order.refundable_cents - already),
+                days_since_delivery=order.days_since_delivery,
+            )
+        decision = decide(view, reason, amount)
+        if decision.allowed:
+            return None
+        return fail(
+            "email_not_warranted",
+            "This ticket's reason is not an allowed refund. Do not email the customer. "
+            "Finish with outcome denied.",
+        )
+
     def _above_requested(
         self, run_id: str | None, arguments: dict[str, object]
     ) -> dict[str, object] | None:
@@ -400,12 +473,26 @@ def _validate_send_refund(arguments: dict[str, object]) -> dict[str, object] | N
 def _lookup_policy(arguments: dict[str, object]) -> dict[str, object]:
     reason = _require_str(arguments, "reason")
     window = WINDOWS_DAYS.get(reason)
+    if window is None:
+        next_step = (
+            "The reason is not a policy reason. Finish with outcome denied and "
+            "amount_cents null. Do not call send_refund or send_email."
+        )
+    else:
+        next_step = (
+            f"The reason is known. Compare days_since_delivery from lookup_order "
+            f"to window_days {window}. If the order is inside the window, call "
+            "send_refund with this same reason, then send_email. If it is older, "
+            "finish with outcome denied and do not call send_refund or send_email. "
+            "This result is not a refund receipt."
+        )
     return ok(
         {
             "reason": reason,
             "known": window is not None,
             "window_days": window,
             "known_reasons": sorted(WINDOWS_DAYS),
+            "next_step": next_step,
         }
     )
 
