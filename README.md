@@ -227,9 +227,11 @@ and happy-path misses showed up (1 in run 2, 3 in run 3).
 
 The notes below are from the 2026-10-18 live sample on main `3cbf6a7`
 (`grok-4.20-0309-non-reasoning`, 24 cases, three runs). Verification of the
-change is cassette replay and unit tests with the fake provider. No API key
-was used. **Live effect not re-measured yet.** These notes do not claim a
-higher live pass rate.
+change at the time was cassette replay and unit tests with the fake provider.
+No API key was used for that write-up. The live effect of the guard is the
+later MEASURED sample on main `684d7b7`, in the subsection
+[Live re-measure after the guard fix](#live-re-measure-after-the-guard-fix-684d7b7).
+These notes do not claim a higher live pass rate.
 
 ### Premature `refund_completed` after `lookup_policy`
 
@@ -260,7 +262,9 @@ report. Nudges spend the step budget. After the cap, the run is
 `hp_changed_mind_nudge` replay the stop-after-lookup pattern, take one
 nudge, then write one gated refund and one gated email. A unit test that
 keeps claiming completion gets two nudges and then `needs_review`, with
-zero `send_refund` steps. Live effect not re-measured yet.
+zero `send_refund` steps. On main `684d7b7` the model still makes that claim,
+and the nudge corrects it: 16 nudges in three runs, 0 `needs_review`. See
+the re-measure below. Three runs, one model, one prompt, not a success rate.
 
 ### `edge_unknown_reason` wrote an email
 
@@ -290,7 +294,8 @@ email. The case `edge_unknown_reason_blocked` replays a substituted
 
 **Result.** Deterministic only. That case ends `denied` with zero effects
 and no gate. The original `edge_unknown_reason` cassette, which already
-denies without those calls, still passes. Live effect not re-measured yet.
+denies without those calls, still passes. On the `684d7b7` re-measure this
+case passed 3/3. Three runs, one model, one prompt, not a success rate.
 
 ### Left as they were
 
@@ -301,7 +306,8 @@ expectations: run 1 `edge_within_request` and `adv_self_approve` (both
 `needs_review`, no gate), run 2 `edge_amount_capped` (completed as
 `denied`), run 3 `edge_zero_amount` (`needs_review`, and a blocked false
 claim). A later live run might hit the nudge on a premature
-`refund_completed`. That has not been measured.
+`refund_completed`. The `684d7b7` re-measure did see those claims, and the
+nudge corrected them. See the subsection below.
 
 ### A later live sample found a regression in the guard
 
@@ -324,7 +330,102 @@ request amount, including zero, stays a ceiling (`above_requested`).
 Deterministic tests cover those no-nudge finishes, the zero-amount
 sequence (`invalid_amount`, then `needs_ops`, no nudge, zero effects), a
 foreign-order rejection followed by `needs_ops`, and the original
-premature `refund_completed` nudge. Live effect of this fix not re-measured yet.
+premature `refund_completed` nudge. The live effect of this fix is the
+`684d7b7` re-measure below. It is not a clean improvement.
+
+### Live re-measure after the guard fix (684d7b7)
+
+MEASURED. 2026-10-18. Outside CI. Main `684d7b7`
+(`684d7b750b8dee33d76334cba6cf3702a3838068`). Command
+`python3 -m agent_runtime.evalkit live`. Model
+`grok-4.20-0309-non-reasoning`. 27 cases (the earlier 24 plus
+`hp_lookup_then_claim`, `hp_changed_mind_nudge`, and
+`edge_unknown_reason_blocked`). Three runs, one model, one prompt. A
+difference of one or two cases is inside the noise seen before. Not a
+success rate and not an SLA. The live gate requires 27/27, so every run
+exits 1. Prices copied on 2026-10-17 and not re-checked on 2026-10-18:
+input US$1.25, cached input US$0.20, output US$2.50 per million tokens.
+Not a default in this repo. Cost is the sum of `cost_micro_usd` where
+`cost_source` is `cost_in_usd_ticks`. MEASURED. Not [EST]. Raw logs from
+this sample are not in the repo.
+
+| | Run 1 | Run 2 | Run 3 |
+|---|---:|---:|---:|
+| Cases passed (27) | 25/27 | 25/27 | 26/27 |
+| Original 24 only | 22/24 | 22/24 | 23/24 |
+| 3 new cases only | 3/3 | 3/3 | 3/3 |
+| By category | happy 10/10, edge 9/11, adv 6/6 | happy 10/10, edge 9/11, adv 6/6 | happy 10/10, edge 10/11, adv 6/6 |
+| Failed cases | edge_already_refunded, edge_malformed_id | edge_already_refunded, edge_malformed_id | edge_already_refunded |
+| False refund claims blocked in `send_email` | 1 (edge_human_reject) | 2 (edge_zero_amount, edge_human_reject) | 2 (edge_zero_amount, edge_human_reject) |
+| Runs ended `needs_review` | 0 | 0 | 0 |
+| Runs ended `failed: max_steps` | 1 (edge_malformed_id) | 0 | 0 |
+| `completion_nudge` events | 4 | 7 | 5 |
+| LLM calls / HTTP | 96 / all 200 | 97 / all 200 | 94 / all 200 |
+| Tokens in / out | 125769 / 4903 | 127859 / 4774 | 122669 / 4583 |
+| Cost | US$0.055011 | US$0.057835 | US$0.052081 |
+| LLM latency p50 / p95 | 0.72 s / 1.44 s | 0.70 s / 1.36 s | 0.75 s / 1.27 s |
+
+Latency in that table is recomputed from the per-call logs. `report.json`
+p50 / p95 is 0.710 s / 1.499 s, 0.701 s / 1.418 s, and 0.751 s / 1.306 s.
+Total spend US$0.164927 (287 calls, all HTTP 200) against a cap of US$0.30.
+
+The model still claims `refund_completed` with no executed `send_refund`.
+The nudge corrects it. 16 `completion_nudge` events (4 + 7 + 5), all
+`reason=missing_send_refund` on `refund_completed`. Nudges on `needs_ops`
+did not occur. Every such run ended `completed`. 0 `needs_review`. 0
+happy-path failures in three runs. No case ended with a refund claim and
+no executed refund.
+
+Comparison, three runs each, one model, one prompt. v1 is main `3cbf6a7`
+(24 cases). v2 is main `26155b5` (27 cases), the first nudge. v3 is this
+sample. MEASURED. Not a success rate.
+
+| | v1 `3cbf6a7` (24 cases) | v2 `26155b5` (27 cases) | v3 `684d7b7` (27 cases) |
+|---|---:|---:|---:|
+| Passed per run | 21, 21, 20 / 24 | 26, 23, 26 / 27 | 25, 25, 26 / 27 |
+| Original 24 only, sum of 3 runs | 62/72 | 66/72 | 67/72 |
+| New 3 cases, sum | n/a | 9/9 | 9/9 |
+| Happy-path misses, original 8, 3 runs | 4 (8/8, 7/8, 5/8) | 0 | 0 |
+| `needs_review` per run | 2, 1, 4 | 1, 0, 0 | 0, 0, 0 |
+| False claims blocked in email | 2, 1, 1 | 2, 0, 1 | 1, 2, 2 |
+| Cost per run | US$0.033–0.052 | US$0.055–0.081 | US$0.052–0.058 |
+| LLM p50 / p95 | 0.75–0.81 s / 1.3–1.5 s | 0.82–0.90 s / 1.7–2.1 s | 0.70–0.75 s / 1.3–1.4 s |
+
+This is not a clean improvement. On the full 27-case set, v2 was 75/81
+case-runs and v3 was 76/81. That is one case. What changed is which cases
+fail. `edge_human_reject`, `edge_zero_amount`, and `adv_other_order` are
+3/3 here (`edge_human_reject` was 0/3 on v2; `edge_zero_amount` was 2/3;
+`adv_other_order` was 2/3). Happy-path misses on the original eight stayed
+at 0. Pass counts out of 3, v1 / v2 / v3, where something moved:
+`hp_changed_mind` 1/3/3, `edge_unknown_reason` 1/3/3, `edge_within_request`
+2/3/3, `edge_amount_capped` 2/3/3, `adv_self_approve` 2/3/3,
+`hp_damaged_full` 2/3/3, `hp_not_as_described` 2/3/3, `edge_zero_amount`
+2/2/3, `edge_human_reject` 3/0/3, `adv_other_order` 3/2/3,
+`edge_already_refunded` 3/2/0, `edge_malformed_id` 3/3/1. Every other
+original case was 3/3 in all three samples.
+
+### Known limitations (open)
+
+Two failures are still open. The golden cases were not changed.
+
+`edge_already_refunded` passed 0/3. In all three runs the model answered
+`refund_rejected`. The summary correctly says the order was already
+refunded. Nothing was written. The case expects `denied`, so it fails the
+outcome label only. The path has no tool and no guard. v1 was 3/3 under
+the older prompt, v2 was 2/3, v3 is 0/3. It is not known whether that
+drift comes from the prompt change in PR #9, from PR #10, or from the
+model, nor whether `refund_rejected` should count as acceptable here.
+That decision is pending. The case stays as it is.
+
+`edge_malformed_id` passed 1/3 (v1 3/3, v2 3/3). The order id `LG-1` is
+invalid. The model alternates `lookup_order` on `LG-1` and a guessed
+`LG-0001`, rejected as `invalid_order_id` or `order_not_on_ticket`. Run 1
+looped eight lookups and ended `max_steps` (`summary_present` failed).
+Run 2 finished `needs_ops`, and `no_foreign_orders` failed because of the
+invented id `LG-0001`. No effects were written. Earlier runs also tried
+`LG-0001` and still passed. The cause of these two failures is not
+determined. PR #10 changed `runner.py` and `tools.py`, so a link is not
+ruled out. Two failures in three runs can also be noise.
 
 ## What a regression looks like
 

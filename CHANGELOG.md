@@ -2,13 +2,21 @@
 
 ## Unreleased
 
+- Docs only. Live re-measure on main `684d7b7` (2026-10-18,
+  `grok-4.20-0309-non-reasoning`, 27 cases, three runs): 25/27, 25/27,
+  26/27. Original 24 cases summed 67/72 (v1 62/72, v2 66/72). Happy-path
+  misses 4, then 0, then 0. `needs_review` per run 0, 0, 0. Total cost
+  US$0.164927. Not a clean improvement: 76/81 versus 75/81 case-runs on
+  the 27-case set, and the failing cases moved. Open:
+  `edge_already_refunded` 0/3 and `edge_malformed_id` 1/3. No runtime change.
 - The completion nudge applies only to `refund_completed` with no confirmed
   `send_refund` and no human rejection of `send_refund` or `send_email` for
   that order. `denied`, `needs_ops`, and `refund_rejected` are not nudged.
   The nudge text no longer names a reason or an amount. A stated request
   amount, including zero, is a ceiling (`above_requested`). Stub suite
   after the shorter nudge text: 27/27, 71356 / 2453 tokens, 12117
-  micro-USD, `completion_nudges=2`. Live effect of this fix not re-measured yet.
+  micro-USD, `completion_nudges=2`. Live effect: the `684d7b7` re-measure
+  in the README (2026-10-18). Not a clean improvement.
 - A finish that claims a refund without a matching executed `send_refund`
   is not accepted. The runner logs `completion_nudge` (`run_id`, `reason`)
   and hands the missing step back, up to `MAX_COMPLETION_NUDGES` (default
@@ -21,7 +29,8 @@
   (stop after `lookup_policy`, and a substituted reason plus an email).
   Golden expectations were not weakened. Stub suite on 2026-10-18:
   27/27, 71362 / 2453 tokens, 12118 micro-USD, `completion_nudges=2`.
-  Demo: 3425 / 124 tokens, 584 micro-USD. Live effect not re-measured yet.
+  Demo: 3425 / 124 tokens, 584 micro-USD. Live effect: the `684d7b7`
+  re-measure in the README (2026-10-18). Not a clean improvement.
 - Docs only. Live sample on main `3cbf6a7` (2026-10-18,
   `grok-4.20-0309-non-reasoning`, 24 cases): 21/24, 21/24, 20/24. Raw logs
   in `docs/live/`. This is not a clean improvement on the earlier 23-case
