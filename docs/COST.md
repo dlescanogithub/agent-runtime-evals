@@ -21,14 +21,15 @@ recompute from the token totals and expect the same integer.
 Token estimate for the stub: about 4 characters per token. Stable, so
 cassettes do not drift. A real provider would use the usage field from the
 API. The optional client does that when `usage` is present. That client is off
-unless `LIVE_MODE=1`. A few live runs on 2026-10-17 are in the README.
-They are not a success rate, and they do not measure every later commit.
+unless `LIVE_MODE=1`. The hosted sample in the README is three runs on
+2026-10-18. It is a small sample, not a success rate, and it does not
+measure every later commit.
 
 | Scenario | Model | Tokens in / out | Cost | Latency | Quality | Price date |
 |---|---|---|---|---|---|---|
 | Eval suite, 24 cases, cassette replay | stub-llm-v1 | 41302 / 2026 | 7371 micro-USD for the suite | p50 1 µs on 2026-10-17. p95 is in the report and is not a gate. | 24/24, checker mean 1.00 | Synthetic price, measured 2026-10-17 |
 | One damaged-lamp refund, `make demo`, including a simulated crash and two approvals | stub-llm-v1 | 2408 / 124 | 433 micro-USD | in-process, not broken out as an SLO | completed, amount 4200 cents, both effects gated | Synthetic price, measured 2026-10-17 |
-| Same refund desk on a hosted model | grok-4.20-0309-non-reasoning and grok-4.3, pre-squash SHA `c1efdfd` on branch `cursor/agent-runtime-evals-mvp-7e58` only | [LIVE_SAMPLES.md](LIVE_SAMPLES.md) | US$0.036–0.072 per suite run on 2026-10-17 | LLM p50 0.70 s to 5.03 s. See LIVE_SAMPLES.md. | 18/23, 18/23, 19/23. A few runs, one prompt, not a success rate. Not a rerun of later commits. | [docs.x.ai/developers/models](https://docs.x.ai/developers/models), 2026-10-17. US$1.25 in / US$0.20 cached / US$2.50 out per million tokens. Not a default in this repo. |
+| Same refund desk on a hosted model | grok-4.20-0309-non-reasoning, main `3cbf6a7`, 2026-10-18 | [LIVE_SAMPLES.md](LIVE_SAMPLES.md) | US$0.032935–0.052459 per suite run. Total US$0.127604 across three runs. | LLM p50 0.75 s to 0.81 s, recomputed from the call logs. See LIVE_SAMPLES.md. | 21/24, 21/24, 20/24. Three runs, one prompt, not a success rate. The live gate requires 24/24, so each run exits 1. | Prices dated 2026-10-17, not re-validated on 2026-10-18. US$1.25 in / US$0.20 cached / US$2.50 out per million tokens. Not a default in this repo. |
 | Illustrative production day, 120 runs [EST] at USD 0.01 per run [EST] | unnamed | [EST] | USD 1.20 / day [EST] | [EST], not this repo | [EST] | Not a quote |
 
 Stub latency is in-process and is not an SLO. On 2026-10-17, `make eval`,
@@ -44,9 +45,10 @@ the demo refund are why 2408 input tokens accompany 124 output tokens.
 
 Live mode is off unless `LIVE_MODE=1`. CI does not set it. Vendor prices are
 not stored here. Copy them from the provider's page into the environment on
-the day you measure. A measured xAI sample from 2026-10-17 is in
-[LIVE_SAMPLES.md](LIVE_SAMPLES.md) (a few runs, one prompt, not a
-success rate). Those prices are not defaults and they are not copied into
+the day you measure. A measured xAI sample from 2026-10-18 is in
+[LIVE_SAMPLES.md](LIVE_SAMPLES.md) (three runs, one prompt, not a
+success rate). The rates used that day were copied on 2026-10-17 and were
+not re-validated on 2026-10-18. Those prices are not defaults and they are not copied into
 the client:
 
 | Provider | Where to copy the price | Base URL the client appends to |
@@ -99,12 +101,12 @@ Hosted calls write the operator's price into that ledger as well. Set both.
 The stub suite does not use the live table. Its cost stays the synthetic
 one in `pricing.py`.
 
-The hosted sample in [LIVE_SAMPLES.md](LIVE_SAMPLES.md) is pre-squash
-SHA `c1efdfd` (branch `cursor/agent-runtime-evals-mvp-7e58`), command
-`python -m agent_runtime.evalkit live`, measured 2026-10-17. A few runs,
-one prompt, not a success rate. The OpenAI and Anthropic adapters have not
-been called against those APIs from this repository. CI does not call any
-hosted API. See [RUNBOOK.md](RUNBOOK.md).
+The hosted sample in [LIVE_SAMPLES.md](LIVE_SAMPLES.md) is main `3cbf6a7`,
+command `PYTHONPATH=src python3 -m agent_runtime.evalkit live`, measured
+2026-10-18. Three runs, one prompt, not a success rate. An earlier 23-case
+sample (18/23, 18/23, 19/23) is labelled there as PR #1. The OpenAI and
+Anthropic adapters have not been called against those APIs from this
+repository. CI does not call any hosted API. See [RUNBOOK.md](RUNBOOK.md).
 
 ## Controls
 
