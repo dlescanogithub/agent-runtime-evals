@@ -1,4 +1,4 @@
-model=grok-4.20-0309-non-reasoning price_date=2026-10-17 measured_at=2026-10-18 cassettes=/workspace/remeasure_main/run3/cassettes
+model=grok-4.20-0309-non-reasoning price_date=2026-10-17 measured_at=2026-10-18 cassettes=<local-run-dir>/run3/cassettes
 eval gate (live): FAIL 20/24 check_mean=0.95 threshold=0.80
 tokens_in=65061 tokens_out=3210 cost_micro_usd=32935 latency_us_p50=779731 latency_us_p95=1318571 (llm calls only) tool_latency_us_p50=273 tool_latency_us_p95=1478 (tool steps)
 FAIL hp_damaged_full happy check=0.83

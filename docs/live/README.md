@@ -37,5 +37,5 @@ does not set `LIVE_MODE`.
   `eval gate (live): FAIL`. The live command exits 1 when the passed count
   is below 24.
 
-`stdout.txt` names a local cassette directory (`/workspace/remeasure_main/...`).
+`stdout.txt` names a local cassette directory (`<local-run-dir>/...`).
 Those cassettes are not in this repository.
