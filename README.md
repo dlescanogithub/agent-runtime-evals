@@ -1,5 +1,7 @@
 # agent-runtime-evals
 
+[![ci](https://github.com/dlescanogithub/agent-runtime-evals/actions/workflows/ci.yml/badge.svg)](https://github.com/dlescanogithub/agent-runtime-evals/actions/workflows/ci.yml)
+
 **Stub + cassettes: this tests the runtime and its controls, not the model.**
 
 CI replays recorded stub responses. It does not call a model, and it does not
