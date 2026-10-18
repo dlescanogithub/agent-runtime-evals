@@ -17,7 +17,7 @@ Both use the synthetic price in `pricing.py`, not a vendor invoice.
 | Completion nudges | Steps of kind `nudge` in the cassette suite | 2 |
 | Regressions the gate can see | `make eval-regression` | The bad trajectory fails the process. This shows the mechanism. It is not a count of production incidents. |
 | Cost per demo run | Sum of per-step stub costs, including crash and resume | 584 micro-USD |
-| Cost of the suite | Same, 27 stub cases | 12118 micro-USD |
+| Cost of the suite | Same, 27 stub cases | 12117 micro-USD |
 | Step latency | Microseconds inside this process. Not an SLO. | LLM-call p50 1 µs on 2026-10-18, `make eval`, v0.1.0. Tool-step p50 and p95 are separate fields in `evals/results/latest.json` and are not checked by tests. |
 | Ungated external effects in the suite | Effect rows versus observed gates | 0 ungated. The cases require the gate. |
 

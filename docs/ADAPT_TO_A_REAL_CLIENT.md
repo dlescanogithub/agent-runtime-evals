@@ -88,8 +88,10 @@ Lumen Desk is the code in this repo.
   balance, and `send_refund` runs that check again at execution.
   `runner.py` refuses to close a run as `refund_completed` unless an
   executed refund matches the order and the amount. It first returns a
-  `completion_nudge` (default cap 2) and does not create the write. After
-  the cap the run is `failed` and the error starts with `needs_review`.
+  `completion_nudge` (default cap 2) and does not create the write, unless
+  a person already rejected `send_refund` or `send_email` for that order.
+  `denied`, `needs_ops`, and `refund_rejected` are not nudged. After the
+  cap the run is `failed` and the error starts with `needs_review`.
   `edge_human_reject`
   shows a rejection: zero effects and a gate on `send_refund`. The outcome
   label is not the control. The stub cassette still says `refund_rejected`.
@@ -184,7 +186,7 @@ their deck.
 - **ROI.** [BUSINESS_CASE.md](BUSINESS_CASE.md) is an illustrative model:
   about USD 290 per business day [EST] on 120 requests/day [EST], model
   bill USD 1.20/day [EST]. The only measured costs in this repo are stub
-  costs on 2026-10-18 (`make demo` 584 micro-USD, `make eval` 12118 micro-USD,
+  costs on 2026-10-18 (`make demo` 584 micro-USD, `make eval` 12117 micro-USD,
   `stub-llm-v1`, 27 cases). Rebuild the table with their volume, their loaded
   cost, and a price copied from the vendor page. Mark every unmeasured
   cell [EST].

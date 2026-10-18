@@ -60,6 +60,25 @@ def test_a_refund_above_the_request_is_rejected(config) -> None:
     assert within_error["code"] == "lookup_required"
 
 
+def test_a_zero_request_cannot_be_refunded_at_the_balance(config) -> None:
+    store = SQLiteStore(config.database_path)
+    run = store.create_run(
+        '{"customer_message":"Please refund zero cents.","intent":"refund",'
+        '"order_id":"LG-1001","reason":"damaged","requested_amount_cents":0}',
+        config.run_budget_micro_usd,
+    )
+    service = ToolService(OrderCatalog(), store)
+    arguments = {"amount_cents": 4200, "order_id": "LG-1001", "reason": "damaged"}
+    proposed = service.validate("send_refund", arguments, run.id)
+    assert proposed is not None
+    error = proposed["error"]
+    assert isinstance(error, dict)
+    assert error["code"] == "above_requested"
+    executed = service.execute("send_refund", arguments, run.id)
+    assert executed["ok"] is False
+    assert store.count_effects("send_refund") == 0
+
+
 def test_over_cap_amount_is_rejected_before_any_effect(config) -> None:
     store = SQLiteStore(config.database_path)
     service = ToolService(OrderCatalog(), store)

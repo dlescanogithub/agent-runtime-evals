@@ -186,7 +186,7 @@ con el botón de aprobar. Operaciones opera. El aprobador aprueba. El que
 cambia el prompt no se mergea solo.
 
 Si me preguntan por el ahorro, separo los números. El costo del stub está
-medido (584 micro-USD la demo, 12118 micro-USD las 27 corridas, el
+medido (584 micro-USD la demo, 12117 micro-USD las 27 corridas, el
 2026-10-18). El ahorro de horas es [EST] y está en el business case, con
 los supuestos a la vista. No mezclo las dos columnas.
 
@@ -199,10 +199,12 @@ strategy". El detalle para adaptar el runtime está en
 Este repo implementa un solo caso: el escritorio de reembolsos de Lumen
 Desk. El agente propone. `send_refund` y `send_email` frenan hasta que una
 persona aprueba o rechaza. `lookup_order` y `lookup_policy` solo leen. Si
-el modelo dice que el reembolso ya se hizo y no hay un effect que coincida,
-el runtime le devuelve el paso que falta (`completion_nudge`, tope
-`MAX_COMPLETION_NUDGES`, 2) y no escribe el reembolso por su cuenta. Si
-sigue diciéndolo, la corrida queda `failed` con `needs_review`. Ese detector es una lista de
+el modelo dice `refund_completed` y no hay un effect que coincida, y nadie
+rechazó `send_refund` o `send_email` en esa corrida, el runtime le devuelve
+la inconsistencia (`completion_nudge`, tope `MAX_COMPLETION_NUDGES`, 2) y
+no escribe el reembolso por su cuenta. `denied`, `needs_ops` y
+`refund_rejected` no reciben ese empujón. Si sigue diciendo que ya se hizo,
+la corrida queda `failed` con `needs_review`. Ese detector es una lista de
 frases en inglés y unas pocas en español (`reembolso procesado`, `ya te
 devolvimos`, `se acreditó`). Es una heurística, no una garantía: otra
 redacción o otro idioma no entra. Si la persona rechaza, como en

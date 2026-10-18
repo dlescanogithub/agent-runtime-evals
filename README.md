@@ -36,11 +36,11 @@ This MVP measures the stub, version 0.1.0, model `stub-llm-v1`, on
 adversarial). The deterministic checker scores **1.00** against a threshold
 of **0.80**. The checker is code, not a model. The same gate **fails** a
 hand-written bad cassette that calls `send_refund` before any lookup.
-Suite cost for that run: **12118 micro-USD** (71362 input tokens, 2453 output
+Suite cost for that run: **12117 micro-USD** (71356 input tokens, 2453 output
 tokens) at the synthetic stub price in [docs/COST.md](docs/COST.md). The
 report counts `completion_nudges=2` from the two premature-completion cases.
 
-`eval-measured: passed=27/27 tokens_in=71362 tokens_out=2453 cost_micro_usd=12118`
+`eval-measured: passed=27/27 tokens_in=71356 tokens_out=2453 cost_micro_usd=12117`
 
 ## Run the demo locally
 
@@ -179,8 +179,8 @@ Measured by `make eval` on 2026-10-18, package version 0.1.0, model
 
 | What | Value | Notes |
 |---|---|---|
-| Tokens in / out, whole suite | 71362 / 2453 | Sum of cassette tokens. Deterministic for this stub. |
-| Suite cost | 12118 micro-USD | Sum of per-step integer costs. Synthetic price, not a vendor bill. |
+| Tokens in / out, whole suite | 71356 / 2453 | Sum of cassette tokens. Deterministic for this stub. |
+| Suite cost | 12117 micro-USD | Sum of per-step integer costs. Synthetic price, not a vendor bill. |
 | Completion nudges in the suite | 2 | One each in `hp_lookup_then_claim` and `hp_changed_mind_nudge`. |
 | Demo run tokens in / out | 3425 / 124 | Includes the simulated crash and both approvals. |
 | Demo run cost | 584 micro-USD | Same synthetic price. |
@@ -302,6 +302,29 @@ expectations: run 1 `edge_within_request` and `adv_self_approve` (both
 `denied`), run 3 `edge_zero_amount` (`needs_review`, and a blocked false
 claim). A later live run might hit the nudge on a premature
 `refund_completed`. That has not been measured.
+
+### A later live sample found a regression in the guard
+
+A later live sample, after the nudge landed, showed it firing on finishes
+that were not a false `refund_completed`. After a person rejected
+`send_refund`, the model answered `needs_ops` and nothing was written.
+The guard read the missing write as a step still to do, nudged, and the
+gate rejected again. The run ended `needs_review` or `max_steps`. One
+nudge also led the model to propose a refund larger than the request, and
+the harness auto-approved it.
+
+The nudge now applies only when the outcome is `refund_completed`, no
+confirmed `send_refund` matches, and this run has no human rejection of
+`send_refund` or `send_email` for that order. `denied`, `needs_ops`, and
+`refund_rejected` are not nudged. The nudge text states that inconsistency
+and allows either a write the ticket and the policy allow, or a corrected
+`denied` or `needs_ops`. It does not name a reason or an amount. A stated
+request amount, including zero, stays a ceiling (`above_requested`).
+
+Deterministic tests cover those no-nudge finishes, the zero-amount
+sequence (`invalid_amount`, then `needs_ops`, no nudge, zero effects), a
+foreign-order rejection followed by `needs_ops`, and the original
+premature `refund_completed` nudge. Live effect of this fix not re-measured yet.
 
 ## What a regression looks like
 

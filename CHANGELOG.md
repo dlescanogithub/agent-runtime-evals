@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- The completion nudge applies only to `refund_completed` with no confirmed
+  `send_refund` and no human rejection of `send_refund` or `send_email` for
+  that order. `denied`, `needs_ops`, and `refund_rejected` are not nudged.
+  The nudge text no longer names a reason or an amount. A stated request
+  amount, including zero, is a ceiling (`above_requested`). Stub suite
+  after the shorter nudge text: 27/27, 71356 / 2453 tokens, 12117
+  micro-USD, `completion_nudges=2`. Live effect of this fix not re-measured yet.
 - A finish that claims a refund without a matching executed `send_refund`
   is not accepted. The runner logs `completion_nudge` (`run_id`, `reason`)
   and hands the missing step back, up to `MAX_COMPLETION_NUDGES` (default

@@ -27,7 +27,7 @@ measure every later commit.
 
 | Scenario | Model | Tokens in / out | Cost | Latency | Quality | Price date |
 |---|---|---|---|---|---|---|
-| Eval suite, 27 cases, cassette replay | stub-llm-v1 | 71362 / 2453 | 12118 micro-USD for the suite | p50 1 µs on 2026-10-18. p95 is in the report and is not a gate. | 27/27, checker mean 1.00, completion_nudges=2 | Synthetic price, measured 2026-10-18 |
+| Eval suite, 27 cases, cassette replay | stub-llm-v1 | 71356 / 2453 | 12117 micro-USD for the suite | p50 1 µs on 2026-10-18. p95 is in the report and is not a gate. | 27/27, checker mean 1.00, completion_nudges=2 | Synthetic price, measured 2026-10-18 |
 | One damaged-lamp refund, `make demo`, including a simulated crash and two approvals | stub-llm-v1 | 3425 / 124 | 584 micro-USD | in-process, not broken out as an SLO | completed, amount 4200 cents, both effects gated | Synthetic price, measured 2026-10-18 |
 | Same refund desk on a hosted model | grok-4.20-0309-non-reasoning, main `3cbf6a7`, 2026-10-18 | [LIVE_SAMPLES.md](LIVE_SAMPLES.md) | US$0.032935–0.052459 per suite run. Total US$0.127604 across three runs. | LLM p50 0.75 s to 0.81 s, recomputed from the call logs. See LIVE_SAMPLES.md. | 21/24, 21/24, 20/24. Three runs, one prompt, not a success rate. The live gate requires 24/24, so each run exits 1. | Prices dated 2026-10-17, not re-validated on 2026-10-18. US$1.25 in / US$0.20 cached / US$2.50 out per million tokens. Not a default in this repo. |
 | Illustrative production day, 120 runs [EST] at USD 0.01 per run [EST] | unnamed | [EST] | USD 1.20 / day [EST] | [EST], not this repo | [EST] | Not a quote |

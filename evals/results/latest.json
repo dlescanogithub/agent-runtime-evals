@@ -16,7 +16,7 @@
   "check_mean": 1.0,
   "check_threshold": 0.8,
   "completion_nudges": 2,
-  "cost_micro_usd": 12118,
+  "cost_micro_usd": 12117,
   "failed": 0,
   "latency_scope": "llm_calls",
   "latency_us_p50": 1,
@@ -25,10 +25,10 @@
   "model": "stub-llm-v1",
   "passed": 27,
   "provider": "cassette",
-  "tokens_in": 71362,
+  "tokens_in": 71356,
   "tokens_out": 2453,
-  "tool_latency_us_p50": 204,
-  "tool_latency_us_p95": 1902,
+  "tool_latency_us_p50": 202,
+  "tool_latency_us_p95": 1998,
   "total": 27,
   "version": "0.1.0"
 }

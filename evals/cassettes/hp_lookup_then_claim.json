@@ -37,7 +37,7 @@
     },
     {
       "content": null,
-      "tokens_in": 870,
+      "tokens_in": 869,
       "tokens_out": 19,
       "tool_calls": [
         {
@@ -53,7 +53,7 @@
     },
     {
       "content": null,
-      "tokens_in": 940,
+      "tokens_in": 939,
       "tokens_out": 48,
       "tool_calls": [
         {
@@ -70,7 +70,7 @@
     },
     {
       "content": "{\"amount_cents\":4200,\"customer_summary\":\"Refund of 4200 cents for LG-1001 was submitted after review.\",\"order_id\":\"LG-1001\",\"outcome\":\"refund_completed\"}",
-      "tokens_in": 1055,
+      "tokens_in": 1054,
       "tokens_out": 39,
       "tool_calls": []
     }

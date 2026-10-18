@@ -372,8 +372,8 @@ class ToolService:
     ) -> dict[str, object] | None:
         """The model may not refund more than the customer asked for.
 
-        When the request does not state a positive amount, only the order
-        balance and the hard cap apply. Those stay in policy.decide.
+        A stated amount, including zero, is a ceiling. A missing amount is
+        not: only the order balance and the hard cap apply, in policy.decide.
         """
 
         if run_id is None:
@@ -383,7 +383,7 @@ class ToolService:
             return None
         raw = as_dict(loads(self._store.get_run(run_id).input_json))
         requested = raw.get("requested_amount_cents")
-        if isinstance(requested, bool) or not isinstance(requested, int) or requested < 1:
+        if isinstance(requested, bool) or not isinstance(requested, int):
             return None
         if amount > requested:
             return fail(
