@@ -17,6 +17,14 @@ frozen transcripts.
 
 Synthetic data only. The default model is a local stub. No API key, no spend.
 
+## Demo
+
+A 90-second demo, in English. It is a recording run through the real runner: a live run of 3 cases on a single model (small sample, indicative only).
+
+- [Video](docs/demo/agent_runtime_evals_demo_en_v3.mp4)
+- [English subtitles](docs/demo/agent_runtime_evals_demo_en_v3.en.srt)
+- [Spanish subtitles](docs/demo/agent_runtime_evals_demo_en_v3.es.srt)
+
 ## Problem and result
 
 Lumen Goods (a fictional retailer) needs a refund assistant that cannot move

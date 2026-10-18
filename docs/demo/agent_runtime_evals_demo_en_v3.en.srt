@@ -1,0 +1,59 @@
+1
+00:00:00,960 --> 00:00:06,590
+A recorded model answer tells a customer their refund was processed. It
+wasn't.
+
+2
+00:00:06,620 --> 00:00:12,630
+The runtime catches the false claim, sends the run to review, and zero refunds
+move.
+
+3
+00:00:12,750 --> 00:00:19,230
+Yesterday, a real model's twenty-four case run produced four claims like this,
+and none got through.
+
+4
+00:00:20,110 --> 00:00:26,910
+This is agent-runtime-evals: a refund agent with a human approval gate, on
+synthetic data.
+
+5
+00:00:27,330 --> 00:00:33,520
+The offline gate replays twenty-four recorded cases: twenty-four of twenty-
+four pass.
+
+6
+00:00:33,860 --> 00:00:38,000
+A forced regression turns it red, with exit code one.
+
+7
+00:00:39,560 --> 00:00:46,380
+Now one live take: a real xAI model, three cases, and a hard cap of two cents.
+
+8
+00:00:50,250 --> 00:00:56,250
+Three of three pass, live. Ten calls, for about two-thirds of a cent.
+
+9
+00:00:56,340 --> 00:01:00,750
+Small sample: three cases, one model, one run.
+
+10
+00:01:01,940 --> 00:01:11,550
+For a client, I'd phase it: shadow mode, then gated send for one refund
+reason, then expand, with new eval cases first.
+
+11
+00:01:11,660 --> 00:01:16,680
+Risks: rubber-stamp approvers, and phrasings the detector doesn't know.
+
+12
+00:01:16,810 --> 00:01:20,660
+The runbook covers roles, monitoring, and incidents.
+
+13
+00:01:20,750 --> 00:01:28,990
+The ROI is an estimate, [EST]: about two hundred ninety dollars a working day,
+until a pilot validates it.
+
