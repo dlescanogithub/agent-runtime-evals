@@ -77,3 +77,5 @@ commit SHAs is a reasonable next step, not done here.
 This is a portfolio repository, not a production service. There is no
 security bounty. If you are reading it as a reviewer, the interesting
 question is whether a new tool was added without a gate.
+
+Use GitHub private vulnerability reporting (Security tab, Report a vulnerability).

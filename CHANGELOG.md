@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Docs only. The hosted-sample notes moved to `docs/LIVE_SAMPLES.md`.
+  `c1efdfd` and `7b0aa2e` are labeled as pre-squash SHAs on branch
+  `cursor/agent-runtime-evals-mvp-7e58` (`main` is squash `622408c`).
+  LICENSE copyright is Diego Lescano. No runtime change.
 - The secret scanner flags `xai-`, `sk-` / `sk-proj-`, `sk-ant-`, an `sk_`
   prefix, `ghp_` / `github_pat_`, `AKIA`, `Bearer`, and private-key headers.
   Samples in tests are built from pieces. `docs/PROVENANCE.md` records the
@@ -30,7 +34,7 @@
   executed `send_refund`. Amount <= 0 is rejected before the gate.
 - `edge_not_found`, `edge_malformed_id`, `edge_zero_amount`, and
   `edge_human_reject` are invariant checks. Happy-path trajectories stay
-  exact. The README quotes the 2026-10-17 live sample on commit `c1efdfd`
+  exact. The README quotes the 2026-10-17 live sample on pre-squash SHA `c1efdfd`
   (18/23, 18/23, 19/23). That sample is not a rerun of the items below,
   and 18/23 next to the earlier 16/23 and 17/23 is run-to-run variability.
 - An order id quoted from a tool error (`e.g., LG-0001`) is not an

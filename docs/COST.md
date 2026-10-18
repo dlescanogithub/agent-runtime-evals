@@ -28,7 +28,7 @@ They are not a success rate, and they do not measure every later commit.
 |---|---|---|---|---|---|---|
 | Eval suite, 24 cases, cassette replay | stub-llm-v1 | 41302 / 2026 | 7371 micro-USD for the suite | p50 1 µs on 2026-10-17. p95 is in the report and is not a gate. | 24/24, checker mean 1.00 | Synthetic price, measured 2026-10-17 |
 | One damaged-lamp refund, `make demo`, including a simulated crash and two approvals | stub-llm-v1 | 2408 / 124 | 433 micro-USD | in-process, not broken out as an SLO | completed, amount 4200 cents, both effects gated | Synthetic price, measured 2026-10-17 |
-| Same refund desk on a hosted model | grok-4.20-0309-non-reasoning and grok-4.3, commit `c1efdfd` only | See the README table | US$0.036–0.072 per suite run on 2026-10-17 | LLM p50 0.70 s to 5.03 s. See the README. | 18/23, 18/23, 19/23. A few runs, one prompt, not a success rate. Not a rerun of later commits. | [docs.x.ai/developers/models](https://docs.x.ai/developers/models), 2026-10-17. US$1.25 in / US$0.20 cached / US$2.50 out per million tokens. Not a default in this repo. |
+| Same refund desk on a hosted model | grok-4.20-0309-non-reasoning and grok-4.3, pre-squash SHA `c1efdfd` on branch `cursor/agent-runtime-evals-mvp-7e58` only | [LIVE_SAMPLES.md](LIVE_SAMPLES.md) | US$0.036–0.072 per suite run on 2026-10-17 | LLM p50 0.70 s to 5.03 s. See LIVE_SAMPLES.md. | 18/23, 18/23, 19/23. A few runs, one prompt, not a success rate. Not a rerun of later commits. | [docs.x.ai/developers/models](https://docs.x.ai/developers/models), 2026-10-17. US$1.25 in / US$0.20 cached / US$2.50 out per million tokens. Not a default in this repo. |
 | Illustrative production day, 120 runs [EST] at USD 0.01 per run [EST] | unnamed | [EST] | USD 1.20 / day [EST] | [EST], not this repo | [EST] | Not a quote |
 
 Stub latency is in-process and is not an SLO. On 2026-10-17, `make eval`,
@@ -40,14 +40,14 @@ Input tokens dominate because each model turn resends the transcript,
 including the system prompt. That is normal for a chat API. Five turns on
 the demo refund are why 2408 input tokens accompany 124 output tokens.
 
-## Live mode price table (empty on purpose)
+## Live mode price table
 
-Live mode is off unless `LIVE_MODE=1`. CI does not set it. The numbers below
-are not in the repo because a guessed vendor price would be a lie. Diego
-fills them in the environment on the day he measures, from the provider's
-official page. A measured xAI sample from 2026-10-17 is quoted in the README
-(a few runs, one prompt, not a success rate). Those prices are not defaults
-and they are not copied into the client:
+Live mode is off unless `LIVE_MODE=1`. CI does not set it. Vendor prices are
+not stored here. Copy them from the provider's page into the environment on
+the day you measure. A measured xAI sample from 2026-10-17 is in
+[LIVE_SAMPLES.md](LIVE_SAMPLES.md) (a few runs, one prompt, not a
+success rate). Those prices are not defaults and they are not copied into
+the client:
 
 | Provider | Where to copy the price | Base URL the client appends to |
 |---|---|---|
@@ -99,7 +99,8 @@ Hosted calls write the operator's price into that ledger as well. Set both.
 The stub suite does not use the live table. Its cost stays the synthetic
 one in `pricing.py`.
 
-The hosted sample in the README is commit `c1efdfd`, command
+The hosted sample in [LIVE_SAMPLES.md](LIVE_SAMPLES.md) is pre-squash
+SHA `c1efdfd` (branch `cursor/agent-runtime-evals-mvp-7e58`), command
 `python -m agent_runtime.evalkit live`, measured 2026-10-17. A few runs,
 one prompt, not a success rate. The OpenAI and Anthropic adapters have not
 been called against those APIs from this repository. CI does not call any
