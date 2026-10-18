@@ -10,10 +10,6 @@ setup:
 demo:
 	$(PYTHON) -m agent_runtime.cli demo
 
-# Prints how to record docs/demo.gif and runs the demo. Does not write a GIF.
-demo-gif:
-	$(PYTHON) scripts/record_demo_gif.py
-
 test:
 	$(PYTHON) -m pytest --cov-fail-under=80
 

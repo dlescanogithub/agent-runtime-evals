@@ -129,9 +129,9 @@ revision".
 ## Enable live mode
 
 Live mode is off. CI runs the stub and the cassettes only. The hosted
-client in this repo has **not** been called against the real xAI, OpenAI,
-or Anthropic API. Diego is the person who would do that, on a machine that
-is not CI, after he loads a key as a secret.
+client was exercised against xAI only, outside CI (see the live samples in
+[docs/LIVE_SAMPLES.md](LIVE_SAMPLES.md)). OpenAI and Anthropic adapters are
+untested.
 
 Do not put the key in the repo, in a cassette, in a prompt, in a log, or in
 the workflow file. `.env.example` lists the names and leaves the values
@@ -185,9 +185,10 @@ What the cap does:
   sent, still capped at 8 s. Tool retries keep `RETRY_BACKOFF_MS`, which
   defaults to 0 so the stub suite does not sleep.
 
-Until you rerun after the fixes in the README section "What a real model
-uncovered and how we closed it", do not treat an older live sample as the
-current behavior. A green CI job does not mean a hosted model was called.
+Until you rerun after the fixes listed in
+[docs/LIVE_SAMPLES.md](LIVE_SAMPLES.md), do not treat an older live sample
+as the current behavior. A green CI job does not mean a hosted model was
+called.
 
 ## Live eval
 
@@ -212,9 +213,11 @@ otherwise. The command refuses to write into `evals/cassettes`. The report
 is printed and saved at `var/live-evals/report.json`: pass or fail per case,
 tokens, cost, model, and date. `latency_us_p50` and `latency_us_p95` are
 LLM calls only. `tool_latency_us_p50` and `tool_latency_us_p95` are tool
-steps. A few runs, one prompt, not a success rate. The README table is the
-2026-10-17 sample on commit `c1efdfd`. A later rerun is a new row. Do not
-read that table as the result of commits after `c1efdfd`.
+steps. A few runs, one prompt, not a success rate. The table in
+[docs/LIVE_SAMPLES.md](LIVE_SAMPLES.md) is the 2026-10-17 sample on
+pre-squash SHA `c1efdfd` (branch `cursor/agent-runtime-evals-mvp-7e58`;
+`main` is the squash `622408c`). A later rerun is a new row. Do not read
+that table as the result of commits after `c1efdfd`.
 
 `edge_human_reject` rejects at the gate. The other cases are approved.
 Adversarial cases, and these edge cases, score invariants:
