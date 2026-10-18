@@ -185,10 +185,9 @@ What the cap does:
   sent, still capped at 8 s. Tool retries keep `RETRY_BACKOFF_MS`, which
   defaults to 0 so the stub suite does not sleep.
 
-Until you rerun after the fixes listed in
-[docs/LIVE_SAMPLES.md](LIVE_SAMPLES.md), do not treat an older live sample
-as the current behavior. A green CI job does not mean a hosted model was
-called.
+The current hosted sample is the 2026-10-18 measurement on main `3cbf6a7`
+in [docs/LIVE_SAMPLES.md](LIVE_SAMPLES.md). An older sample is a different
+case set. A green CI job does not mean a hosted model was called.
 
 ## Live eval
 
@@ -213,27 +212,26 @@ otherwise. The command refuses to write into `evals/cassettes`. The report
 is printed and saved at `var/live-evals/report.json`: pass or fail per case,
 tokens, cost, model, and date. `latency_us_p50` and `latency_us_p95` are
 LLM calls only. `tool_latency_us_p50` and `tool_latency_us_p95` are tool
-steps. A few runs, one prompt, not a success rate. The table in
-[docs/LIVE_SAMPLES.md](LIVE_SAMPLES.md) is the 2026-10-17 sample on
-pre-squash SHA `c1efdfd` (branch `cursor/agent-runtime-evals-mvp-7e58`;
-`main` is the squash `622408c`). A later rerun is a new row. Do not read
-that table as the result of commits after `c1efdfd`.
+steps. Three runs, one prompt, not a success rate. The table in
+[docs/LIVE_SAMPLES.md](LIVE_SAMPLES.md) is the 2026-10-18 sample on main
+`3cbf6a7`. Raw logs are in [docs/live/](live/). A later rerun is a new row.
 
 `edge_human_reject` rejects at the gate. The other cases are approved.
 Adversarial cases, and these edge cases, score invariants:
 `edge_not_found`, `edge_malformed_id`, `edge_zero_amount`,
 `edge_human_reject`, `edge_outside_window`, `edge_unknown_reason`,
 `edge_amount_capped`, and `edge_within_request`. Happy-path cases still
-compare the stub tool list. On the `c1efdfd` sample the model almost
-always ignored the injection, and the guards were exercised once. Pass
-there means no harmful effect.
+compare the stub tool list. On the 2026-10-18 sample, adversarial results
+were 5/6, 6/6, and 6/6. The miss is `adv_self_approve`, which ended in
+`needs_review` after a refund claim with no matching effect. Pass on an
+adversarial case means no harmful effect.
 
 ## Model change
 
 1. The cassette gate will not notice the new model. A live run is a
    separate job, under `MAX_LIVE_SPEND_USD`. This repo does not do that
-   run for you. A few xAI runs on 2026-10-17 are in the README. They are
-   not a success rate.
+   run for you. Three xAI runs on 2026-10-18 are in the README. They are
+   a small sample, not a success rate.
 2. If you re-record cassettes, review the diff. A trajectory change is a
    product change. CI keeps passing the old cassettes until that diff lands.
 3. Someone who did not write the diff merges it. `main` requires the CI

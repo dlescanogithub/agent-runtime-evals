@@ -169,10 +169,10 @@ Keep the checklist. Point each line at their system, not at a slide.
 
 Still not covered, here or by adapting the docs alone: their identity
 provider, OpenTelemetry, Postgres `FOR UPDATE SKIP LOCKED`, an LLM judge,
-a human-agreement number, and a live score. The live-sample table is a few
-runs on pre-squash SHA `c1efdfd` (branch `cursor/agent-runtime-evals-mvp-7e58`;
-`main` is the squash `622408c`). See [LIVE_SAMPLES.md](LIVE_SAMPLES.md). A few
-runs are not a success rate, and they do not measure later commits.
+a human-agreement number, and a live score. The live-sample table is three
+runs on main `3cbf6a7` (2026-10-18, 24 cases). See [LIVE_SAMPLES.md](LIVE_SAMPLES.md).
+Three runs are a small sample, not a success rate, and they do not measure
+later commits.
 
 ## Business strategy when you adapt
 

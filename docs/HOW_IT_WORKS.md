@@ -274,8 +274,8 @@ Porque es el tiempo adentro del proceso, con un stub. No es un modelo en
 red. El reporte separa las llamadas al modelo (`latency_us_p50` /
 `latency_us_p95`) de los pasos de tools. En el stub las dos quedan en
 microsegundos y no son un SLO. La latencia live de las llamadas al modelo,
-en segundos, está en el README y es de una muestra del 2026-10-17, no una
-tasa de éxito.
+en segundos, está en el README y es de tres corridas del 2026-10-18 en
+`main` `3cbf6a7`, no una tasa de éxito.
 
 ### De Deployment Strategist
 
@@ -305,8 +305,8 @@ juez y un humano, porque no hay un juez: el checker es código.
 **¿Qué pasa si cambian el modelo?**
 El CI de este repo no se entera. Solo ve cassettes. Si quieren probar el
 modelo nuevo, es una corrida aparte, con tope de gasto, y un diff de
-cassettes que mira alguien que no lo escribió. Hubo una muestra live el
-2026-10-17, citada en el README como unas pocas corridas, no como tasa de
+cassettes que mira alguien que no lo escribió. La muestra live del
+2026-10-18 está en el README: tres corridas, un modelo, no una tasa de
 éxito. El CI sigue sin llamarla. `main` puede exigir el job `ci`. Ese check se
 configura en GitHub. El repo no lo enciende solo. El rollback es deployar
 la revisión anterior y rechazar lo que quedó esperando. Lo que ya se pagó

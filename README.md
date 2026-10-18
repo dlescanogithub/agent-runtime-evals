@@ -120,7 +120,7 @@ What this repository actually does:
 - **Risk register.** [docs/RISKS.md](docs/RISKS.md).
 - **Cost controls and caps.** [docs/COST.md](docs/COST.md). The stub budget is `RUN_BUDGET_MICRO_USD`. Live mode also requires `MAX_LIVE_SPEND_USD` and prices the operator copies in. CI does not set `LIVE_MODE`.
 - **Incident and rollback.** [docs/RUNBOOK.md](docs/RUNBOOK.md): roles, a refund that should not have gone out, a worker that died mid-tool, who owns the gate, deploy the previous revision, and a person reverses money already sent.
-- **Not covered yet.** The customer's identity provider (the API has a bearer token, not their login), OpenTelemetry, Postgres `FOR UPDATE SKIP LOCKED`, an LLM judge, a human-agreement number, and a golden set of 100 cases. The live table is a few runs on pre-squash SHA `c1efdfd` (branch `cursor/agent-runtime-evals-mvp-7e58`), not a success rate. Notes: [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md). Branch protection is described in [SECURITY.md](SECURITY.md) and is not enabled from this repo.
+- **Not covered yet.** The customer's identity provider (the API has a bearer token, not their login), OpenTelemetry, Postgres `FOR UPDATE SKIP LOCKED`, an LLM judge, a human-agreement number, and a golden set of 100 cases. The live table is three runs on main `3cbf6a7` (24 cases, 2026-10-18), a small sample, not a success rate. Notes: [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md). Branch protection is described in [SECURITY.md](SECURITY.md) and is not enabled from this repo.
 
 ### Business strategy
 
@@ -200,26 +200,26 @@ invariants. See [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md). The stub suite doe
 
 ## Live samples
 
-A few runs, one prompt, not a success rate. Measured 2026-10-17 with
-`python -m agent_runtime.evalkit live`, outside CI. Prices from
-[docs.x.ai/developers/models](https://docs.x.ai/developers/models), checked
-the same day: input US$1.25, cached input US$0.20, output US$2.50 per
-million tokens. Not a default in this repo. MEDIDO. Not [EST].
-
-`c1efdfd` and `7b0aa2e` are pre-squash SHAs on branch
-`cursor/agent-runtime-evals-mvp-7e58`. They are not commits on `main`.
-`main` is the squash `622408c`. The rows are the `c1efdfd` sample. They do
-not measure later commits. Notes, the earlier 4/22, 16/23, and 17/23
-counts, and what each sample caught: [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md).
+Three runs, one model, one prompt. A small sample, not a success rate and
+not an SLA. Measured 2026-10-18 on main `3cbf6a7` with
+`PYTHONPATH=src python3 -m agent_runtime.evalkit live`, outside CI. Model
+`grok-4.20-0309-non-reasoning`. 24 cases (8 happy, 10 edge, 6 adversarial).
+The live gate requires 24/24, so every run exits 1. Prices copied on
+2026-10-17 and not re-validated on 2026-10-18: input US$1.25, cached input
+US$0.20, output US$2.50 per million tokens. Not a default in this repo.
+MEDIDO. Not [EST]. Logs: [docs/live/](docs/live/). Notes, failures, and an
+earlier 23-case sample (18/23, 18/23, 19/23, PR #1): [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md).
 
 | Date | Model | Result | Tokens | Cost | LLM latency p50 / p95 |
 |---|---|---|---|---|---|
-| 2026-10-17 | grok-4.20-0309-non-reasoning | 18/23 (adv 6/6, happy 8/8, edge 4/9) | 65856 in / 2998 out | US$0.037 | 0.70 s / 1.32 s |
-| 2026-10-17 | grok-4.20-0309-non-reasoning | 18/23 (adv 6/6, happy 7/8, edge 5/9) | 70475 / 3380 | US$0.036 | 0.75 s / 1.48 s |
-| 2026-10-17 | grok-4.3 | 19/23 (adv 6/6, happy 7/8, edge 6/9) | 62732 / 14473 (incl ~11.6k reasoning) | US$0.072 | 5.03 s / 9.43 s |
+| 2026-10-18 | grok-4.20-0309-non-reasoning | 21/24 (happy 8/8, edge 8/10, adv 5/6) | 71644 in / 3373 out | US$0.052459 | 0.81 s / 1.42 s |
+| 2026-10-18 | grok-4.20-0309-non-reasoning | 21/24 (happy 7/8, edge 8/10, adv 6/6) | 74779 / 3617 | US$0.042210 | 0.75 s / 1.49 s |
+| 2026-10-18 | grok-4.20-0309-non-reasoning | 20/24 (happy 5/8, edge 9/10, adv 6/6) | 65061 / 3210 | US$0.032935 | 0.78 s / 1.32 s |
 
-18/23 next to the earlier 16/23 and 17/23 is run-to-run variability. The
-pass count did not improve.
+Latency in the table is recomputed from the per-call logs. `report.json`
+p95 is 1.425 s / 1.589 s / 1.319 s, a different percentile. This is not a
+clean improvement on the earlier 23-case sample. The case count differs,
+and happy-path misses showed up (1 in run 2, 3 in run 3).
 
 ## What a regression looks like
 
@@ -259,7 +259,7 @@ re-record.
 
 What it does not do:
 
-- It does not call a paid model unless `LIVE_MODE=1` and the hosted settings are in the environment. CI never sets them. The live rows are the pre-squash `c1efdfd` sample in [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md). The fixes after that commit are not in those rows.
+- It does not call a paid model unless `LIVE_MODE=1` and the hosted settings are in the environment. CI never sets them. The live rows are the 2026-10-18 sample on main `3cbf6a7` in [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md). Three runs, one model, one prompt.
 - The HTTP API requires `Authorization: Bearer` from `API_TOKEN`, compared in constant time. `GET /health` is open. This is not the customer's identity provider.
 - It does not export OpenTelemetry. Traces are local JSONL.
 - It does not run an LLM judge, and it does not report agreement with a human panel.
@@ -315,7 +315,7 @@ commit a `.env` file or a live cassette.
 ## Next steps
 
 - Postgres worker with `FOR UPDATE SKIP LOCKED`, still behind the same step table.
-- A live rerun, with `.venv/bin/python -m agent_runtime.evalkit live` or `make eval-live`. The table in [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md) is the pre-squash `c1efdfd` sample. Do not treat it as the result of later commits.
+- A live rerun, with `.venv/bin/python -m agent_runtime.evalkit live` or `make eval-live`. The table in [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md) is the 2026-10-18 sample on main `3cbf6a7`. A later commit needs its own row.
 - An LLM judge plus a small human-labeled set, and a published agreement number only after that study exists. The checker in CI stays code.
 - OpenTelemetry export of the same trace fields.
 - The customer's identity provider in front of the bearer token.
@@ -333,7 +333,8 @@ commit a `.env` file or a live cassette.
 | [docs/RISKS.md](docs/RISKS.md) | Risk matrix |
 | [docs/METRICS.md](docs/METRICS.md) | What success means and how it is measured |
 | [docs/COST.md](docs/COST.md) | Cost and latency table |
-| [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md) | Hosted-model samples, with the pre-squash SHAs |
+| [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md) | Hosted-model sample on main `3cbf6a7`, plus an earlier 23-case sample |
+| [docs/live/README.md](docs/live/README.md) | Raw logs for the 2026-10-18 runs |
 | [docs/RUNBOOK.md](docs/RUNBOOK.md) | Operate, monitor, incidents, gate ownership, rollback, handoff |
 | [docs/architecture.md](docs/architecture.md) | Data flow and trust boundaries |
 | [SECURITY.md](SECURITY.md) | Secrets, CI, branch protection |

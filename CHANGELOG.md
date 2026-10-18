@@ -2,9 +2,11 @@
 
 ## Unreleased
 
-- Docs only. The hosted-sample notes moved to `docs/LIVE_SAMPLES.md`.
-  `c1efdfd` and `7b0aa2e` are labeled as pre-squash SHAs on branch
-  `cursor/agent-runtime-evals-mvp-7e58` (`main` is squash `622408c`).
+- Docs only. Live sample on main `3cbf6a7` (2026-10-18,
+  `grok-4.20-0309-non-reasoning`, 24 cases): 21/24, 21/24, 20/24. Raw logs
+  in `docs/live/`. This is not a clean improvement on the earlier 23-case
+  sample (18/23, 18/23, 19/23, PR #1). No runtime change.
+- Docs only. The hosted-sample notes live in `docs/LIVE_SAMPLES.md`.
   LICENSE copyright is Diego Lescano. No runtime change.
 - The secret scanner flags `xai-`, `sk-` / `sk-proj-`, `sk-ant-`, an `sk_`
   prefix, `ghp_` / `github_pat_`, `AKIA`, `Bearer`, and private-key headers.
@@ -26,7 +28,7 @@
   closed without live config. CI still runs the stub only.
 - The system prompt asks the model to call the gated tools. Tool schemas
   include descriptions. `edge_human_reject` rejects at the gate.
-- Stub suite after the `c1efdfd` edits was 23/23, 38886 / 1902 tokens,
+- Stub suite on the 23-case set was 23/23, 38886 / 1902 tokens,
   6937 micro-USD. Demo stays 2408 / 124 tokens, 433 micro-USD.
 - Live report percentiles are LLM calls only. Tool-step latency is separate.
 - `eval-live` configures JSON logs so each hosted call emits `model_call`.
@@ -34,9 +36,9 @@
   executed `send_refund`. Amount <= 0 is rejected before the gate.
 - `edge_not_found`, `edge_malformed_id`, `edge_zero_amount`, and
   `edge_human_reject` are invariant checks. Happy-path trajectories stay
-  exact. The README quotes the 2026-10-17 live sample on pre-squash SHA `c1efdfd`
-  (18/23, 18/23, 19/23). That sample is not a rerun of the items below,
-  and 18/23 next to the earlier 16/23 and 17/23 is run-to-run variability.
+  exact. The 2026-10-17 live sample on the 23-case set (PR #1) was
+  18/23, 18/23, 19/23. 18/23 next to the earlier 16/23 and 17/23 on that
+  case set is run-to-run variability. The 2026-10-18 rows use 24 cases.
 - An order id quoted from a tool error (`e.g., LG-0001`) is not an
   invented order. An id the model asserts, or uses on an effect, still is.
 - `edge_human_reject` no longer requires the outcome label
