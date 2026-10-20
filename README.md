@@ -2,6 +2,12 @@
 
 [![ci](https://github.com/dlescanogithub/agent-runtime-evals/actions/workflows/ci.yml/badge.svg)](https://github.com/dlescanogithub/agent-runtime-evals/actions/workflows/ci.yml)
 
+**TL;DR**
+
+- A small agent runtime for a fictional back-office refund desk: it records every run and refuses to move money or send email until a person approves.
+- MEASURED stub cassette replay (version 0.1.0, model `stub-llm-v1`, 2026-10-18): the eval gate passes 27/27 and the deterministic checker scores 1.00 against a threshold of 0.80.
+- Run `make demo` (fake provider, no API key), or read the walkthrough in [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
+
 **Stub + cassettes: this tests the runtime and its controls, not the model.**
 
 CI replays recorded stub responses. It does not call a model, and it does not
