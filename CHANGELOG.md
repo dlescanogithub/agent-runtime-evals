@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Docs only. README TL;DR: three lines under the title and badges. No runtime change.
 - Docs only. Local cassette paths in `docs/live/` are a placeholder (`<local-run-dir>/runN`). Numbers, tokens, and costs in those logs are unchanged. No runtime change.
 - Docs only. Dashboard demo of the three live re-measures (94 s, English) under `docs/demo/dashboard_v2/`, with EN/ES subtitles, the script, and the number trace. MEASURED 2026-10-18. Three runs per version, one model, one prompt. Not a clean improvement, and not a success rate. No runtime change.
 - Docs only. Live re-measure on main `684d7b7` (2026-10-18,
