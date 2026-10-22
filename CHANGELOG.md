@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Docs only. Rephrased the stub suite-cost cell so a nudge count is plain text. No runtime change.
+- Docs only. README "Start here" (three lines): what the cassette gate shows, `make demo`, and the existing English demo video. No runtime change.
+- Docs only. README "Business value" (seven lines) and `docs/BUSINESS_VALUE.md`. Buyer, levers, baseline versus target, ROI [EST] from the existing business case, cost table, measurement plan, risks, and what is MEASURED versus not. No year-1 percent: build cost and business days per year are UNVERIFIED. No runtime change.
+- Docs only. README "Proof". MEASURED 2026-10-22, Python 3.12.3, pytest 9.1.1, package 0.1.0, Python sources at main `7ea9d66`: 110 passed on four local runs. Line coverage printed 88.05% (2711/3079) twice and 87.82% (2704/3079) twice. The seven statements are a lock race; the test passed each time. Pytest printed `CoverageWarning: Module agent_runtime was previously imported, but not measured`. Not a CI badge. No runtime change.
 - Docs only. README TL;DR: three lines under the title and badges. No runtime change.
 - Docs only. Local cassette paths in `docs/live/` are a placeholder (`<local-run-dir>/runN`). Numbers, tokens, and costs in those logs are unchanged. No runtime change.
 - Docs only. Dashboard demo of the three live re-measures (94 s, English) under `docs/demo/dashboard_v2/`, with EN/ES subtitles, the script, and the number trace. MEASURED 2026-10-18. Three runs per version, one model, one prompt. Not a clean improvement, and not a success rate. No runtime change.

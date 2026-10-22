@@ -2,6 +2,12 @@
 
 [![ci](https://github.com/dlescanogithub/agent-runtime-evals/actions/workflows/ci.yml/badge.svg)](https://github.com/dlescanogithub/agent-runtime-evals/actions/workflows/ci.yml)
 
+## Start here
+
+It shows the runtime controls, not a model score: `send_refund` and `send_email` wait for a person, and a cassette that refunds before lookup fails the gate.
+One command, fake provider, no API key: `make demo`.
+Recording of a real runner pass (English, about 90 seconds): [docs/demo/agent_runtime_evals_demo_en_v3.mp4](docs/demo/agent_runtime_evals_demo_en_v3.mp4).
+
 **TL;DR**
 
 - A small agent runtime for a fictional back-office refund desk: it records every run and refuses to move money or send email until a person approves.
@@ -97,6 +103,16 @@ price, which is **not** a production model price.
 Full write-up, assumptions, and the phased rollout: [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md),
 [docs/SCOPE.md](docs/SCOPE.md), [docs/DISCOVERY.md](docs/DISCOVERY.md).
 How this would be adapted for a real customer: [docs/ADAPT_TO_A_REAL_CLIENT.md](docs/ADAPT_TO_A_REAL_CLIENT.md).
+
+## Business value
+
+Lumen Goods is fictional. The buyer is that refund desk: an operator runs it, and a named approver releases `send_refund` and `send_email`. The model cannot approve itself.
+The levers are a shorter read-and-draft [EST], a gate on those two effects, and a cassette check that fails a bad trajectory. Plan: [docs/BUSINESS_VALUE.md](docs/BUSINESS_VALUE.md).
+Baseline versus target is mostly [EST]: about 6 minutes per request today, about 45 seconds of review with the agent, 120 requests per business day.
+ROI [EST]: about USD 290 per business day, against a model bill of USD 1.20/day [EST]. A wrong refund of about USD 50 [EST] can erase the labor saving of many requests.
+Build cost and business days per year are UNVERIFIED. This repo does not state them, so this page does not compute a year-1 percent or a payback.
+MEASURED: stub suite 27/27, checker mean 1.00, 12117 micro-USD (2026-10-18, v0.1.0, `stub-llm-v1`). One demo refund the same day: 584 micro-USD. The price is synthetic.
+Not measured: analyst minutes, approved-without-edit, queue age, and a vendor invoice. Hosted rows are a small sample, one model, one prompt, not a success rate.
 
 ## Use cases, governance and business strategy
 
@@ -526,6 +542,13 @@ never committed. Prices are `LLM_INPUT_USD_PER_MILLION` and
 `.venv/bin/python -m agent_runtime.evalkit live` with the same environment. Do not
 commit a `.env` file or a live cassette.
 
+## Proof
+
+MEASURED 2026-10-22. Local interpreter Python 3.12.3, pytest 9.1.1, package 0.1.0. CI asks for Python 3.12. The patch version on the runner is UNVERIFIED.
+Command, same as the CI test step: `pytest --cov=agent_runtime --cov-report=term-missing --cov-report=json:coverage.json --cov-fail-under=80`.
+Four local runs: **110 passed** each time. pytest-cov printed `Total coverage: 88.05%` on two runs and `87.82%` on two runs. `coverage.json` `totals.percent_covered` was 88.04806755440077 (2711 of 3079 statements) or 87.82072101331602 (2704 of 3079).
+The seven statements are the run-lock miss (`runner.py` 136–137) and a transaction rollback plus a lock conflict (`store.py` 142–144 and 347–348). `test_two_workers_cannot_execute_the_same_step` passed every time. Pytest also printed `CoverageWarning: Module agent_runtime was previously imported, but not measured`. Not a CI badge. Python sources match main `7ea9d66`.
+
 ## Next steps
 
 - Postgres worker with `FOR UPDATE SKIP LOCKED`, still behind the same step table.
@@ -542,6 +565,7 @@ commit a `.env` file or a live cassette.
 | [docs/ADAPT_TO_A_REAL_CLIENT.md](docs/ADAPT_TO_A_REAL_CLIENT.md) | What to swap, what to keep, and the rollout gates |
 | [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) | Plain-language walkthrough, in Spanish, for explaining the system |
 | [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md) | Problem, ROI [EST], alternatives |
+| [docs/BUSINESS_VALUE.md](docs/BUSINESS_VALUE.md) | Buyer, levers, baseline versus target, ROI [EST], what is MEASURED |
 | [docs/DISCOVERY.md](docs/DISCOVERY.md) | Ten discovery questions and how the answers change the design |
 | [docs/SCOPE.md](docs/SCOPE.md) | Pilot, expand, steady state, exit criteria |
 | [docs/RISKS.md](docs/RISKS.md) | Risk matrix |
