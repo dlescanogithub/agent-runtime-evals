@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-runtime-evals"
-version = "0.1.0"
+version = "0.1.1"
 description = "Minimal agent runtime with durable state, a human review gate, and CI-blocking evals. Synthetic data only."
 readme = "README.md"
 requires-python = ">=3.11"

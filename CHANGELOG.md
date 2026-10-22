@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.1 - 2026-10-22
+
 - Docs only. Rephrased the stub suite-cost cell so a nudge count is plain text. No runtime change.
 - Docs only. README "Start here" (three lines): what the cassette gate shows, `make demo`, and the existing English demo video. No runtime change.
 - Docs only. README "Business value" (seven lines) and `docs/BUSINESS_VALUE.md`. Buyer, levers, baseline versus target, ROI [EST] from the existing business case, cost table, measurement plan, risks, and what is MEASURED versus not. No year-1 percent: build cost and business days per year are UNVERIFIED. No runtime change.
