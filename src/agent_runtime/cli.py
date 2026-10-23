@@ -1,4 +1,4 @@
-"""Command line. `python -m agent_runtime.cli demo` is the interview demo."""
+"""Command line. `python -m agent_runtime.cli demo` is the walkthrough demo."""
 
 from __future__ import annotations
 

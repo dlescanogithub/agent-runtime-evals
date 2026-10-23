@@ -4,9 +4,9 @@ An email or a final summary may say a refund was processed only when an
 executed ``send_refund`` matches that order and that amount. A non-positive
 amount never matches, because the tool refuses to execute one.
 
-This is a heuristic over a fixed phrase list (English, plus a few Spanish
-wordings). It is not a guarantee. A paraphrase or a language that is not
-listed still gets through. Negation is a nearby word, not a parse.
+This is a heuristic over a fixed English phrase list. It is not a
+guarantee. A paraphrase, or a language that is not listed, still gets
+through. Negation is a nearby word, not a parse.
 """
 
 from __future__ import annotations
@@ -23,23 +23,20 @@ _CLAIM = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _EXTRA = re.compile(
-    r"reembolso\s+(?:procesado|emitido|aprobado|realizado|hecho)"
-    r"|ya\s+te\s+devolvimos"
-    r"|te\s+devolvimos\s+el\s+dinero"
-    r"|se\s+acredit[oó]"
-    r"|se\s+(?:proces[oó]|realiz[oó])\s+el\s+reembolso"
-    r"|hemos\s+devuelto"
-    r"|we(?:'ve| have)\s+sent\s+your\s+money\s+back"
-    r"|money\s+(?:has been|was)\s+(?:returned|sent back|refunded)",
+    r"we(?:'ve| have)\s+sent\s+your\s+money\s+back"
+    r"|we(?:'ve| have)\s+returned"
+    r"|sent\s+your\s+money\s+back"
+    r"|money\s+(?:has been|was)\s+(?:returned|sent back|refunded)"
+    r"|(?:was|were|been)\s+credited",
     re.IGNORECASE,
 )
 _NEGATION = re.compile(
     r"\b(?:not|no|never|without|cannot|can't|won't|wasn't|isn't|hasn't|haven't|"
-    r"didn't|unable|nunca|sin|jam[aá]s)\b",
+    r"didn't|unable)\b",
     re.IGNORECASE,
 )
-_ZERO_CENTS = re.compile(r"\b(?:0|zero|cero)[\s-]*(?:cents?|centavos)\b", re.IGNORECASE)
-_CENTS = re.compile(r"\b(\d+)[\s-]*(?:cents?|centavos)\b", re.IGNORECASE)
+_ZERO_CENTS = re.compile(r"\b(?:0|zero)[\s-]*(?:cents?)\b", re.IGNORECASE)
+_CENTS = re.compile(r"\b(\d+)[\s-]*(?:cents?)\b", re.IGNORECASE)
 
 
 def text_claims_refund_done(text: str) -> bool:

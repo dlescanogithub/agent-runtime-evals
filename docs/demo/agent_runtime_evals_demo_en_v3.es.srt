@@ -1,60 +1,59 @@
 1
 00:00:00,960 --> 00:00:06,590
-Una respuesta grabada del modelo le dice a un cliente que su reembolso fue procesado.
-No era cierto.
+A recorded model answer tells a customer their refund was processed. It
+wasn't.
 
 2
 00:00:06,620 --> 00:00:12,630
-El runtime detecta la afirmación falsa, manda la corrida a revisión y no se mueve
-ningún reembolso.
+The runtime catches the false claim, sends the run to review, and zero refunds
+move.
 
 3
 00:00:12,750 --> 00:00:19,230
-Ayer, una corrida real de veinticuatro casos con un modelo produjo cuatro afirmaciones
-así, y ninguna pasó.
+Yesterday, a real model's twenty-four case run produced four claims like this,
+and none got through.
 
 4
 00:00:20,110 --> 00:00:26,910
-Este es agent-runtime-evals: un agente de reembolsos con aprobación humana, sobre
-datos sintéticos.
+This is agent-runtime-evals: a refund agent with a human approval gate, on
+synthetic data.
 
 5
 00:00:27,330 --> 00:00:33,520
-El gate offline reproduce veinticuatro casos grabados: pasan veinticuatro de
-veinticuatro.
+The offline gate replays twenty-four recorded cases: twenty-four of twenty-
+four pass.
 
 6
 00:00:33,860 --> 00:00:38,000
-Una regresión forzada lo pone en rojo, con código de salida uno.
+A forced regression turns it red, with exit code one.
 
 7
 00:00:39,560 --> 00:00:46,380
-Ahora una toma en vivo: un modelo real de xAI, tres casos y un tope duro de dos
-centavos.
+Now one live take: a real xAI model, three cases, and a hard cap of two cents.
 
 8
 00:00:50,250 --> 00:00:56,250
-Pasan tres de tres, en vivo. Diez llamadas, por unos dos tercios de centavo.
+Three of three pass, live. Ten calls, for about two-thirds of a cent.
 
 9
 00:00:56,340 --> 00:01:00,750
-Muestra chica: tres casos, un modelo, una corrida.
+Small sample: three cases, one model, one run.
 
 10
 00:01:01,940 --> 00:01:11,550
-Para un cliente, lo haría por fases: modo shadow, luego envío con gate para un solo
-motivo de reembolso, y después expandir, con casos de eval nuevos primero.
+For a client, I'd phase it: shadow mode, then gated send for one refund
+reason, then expand, with new eval cases first.
 
 11
 00:01:11,660 --> 00:01:16,680
-Riesgos: aprobadores que firman sin leer, y frases que el detector no conoce.
+Risks: rubber-stamp approvers, and phrasings the detector doesn't know.
 
 12
 00:01:16,810 --> 00:01:20,660
-El runbook cubre roles, monitoreo e incidentes.
+The runbook covers roles, monitoring, and incidents.
 
 13
 00:01:20,750 --> 00:01:28,990
-El ROI es una estimación [EST]: unos doscientos noventa dólares por día hábil, hasta
-que un piloto lo valide.
+The ROI is an estimate, [EST]: about two hundred ninety dollars a working day,
+until a pilot validates it.
 

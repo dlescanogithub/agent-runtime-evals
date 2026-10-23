@@ -34,10 +34,11 @@ Synthetic data only. The default model is a local stub. No API key, no spend.
 A 90-second demo, in English. It is a recording run through the real runner: a live run of 3 cases on a single model (small sample, indicative only).
 
 - [Video](docs/demo/agent_runtime_evals_demo_en_v3.mp4)
-- [English subtitles](docs/demo/agent_runtime_evals_demo_en_v3.en.srt)
-- [Spanish subtitles](docs/demo/agent_runtime_evals_demo_en_v3.es.srt)
+- [English subtitles](docs/demo/agent_runtime_evals_demo_en_v3.en.srt) (the `.es.srt` sidecar is the same English text)
 
-- **Dashboard demo: three live re-measures (94 s, English)**: [video](docs/demo/dashboard_v2/agent_runtime_evals_dashboard_demo_en_v2.mp4) (subtitles: [English](docs/demo/dashboard_v2/agent_runtime_evals_dashboard_demo_en_v2.en.srt), [Spanish](docs/demo/dashboard_v2/agent_runtime_evals_dashboard_demo_en_v2.es.srt), script: [SCRIPT.md](docs/demo/dashboard_v2/SCRIPT.md), trace: [evidence/number_trace.md](docs/demo/dashboard_v2/evidence/number_trace.md)). MEASURED 2026-10-18. Three runs per version, one model, one prompt. Not a clean improvement: which cases failed changed. Not a success rate. Same notes as [Failures found and what we changed](#failures-found-and-what-we-changed).
+The 90-second video was recorded when the offline suite had 24 cases. The subtitles say twenty-four of twenty-four. The current stub suite is 27/27, measured 2026-10-18. The mp4 binary was not re-encoded, so a player that reads the embedded soft-subtitle track can still show the original Spanish. The sidecar caption files are English.
+
+- **Dashboard demo: three live re-measures (94 s, English)**: [video](docs/demo/dashboard_v2/agent_runtime_evals_dashboard_demo_en_v2.mp4) (subtitles: [English](docs/demo/dashboard_v2/agent_runtime_evals_dashboard_demo_en_v2.en.srt); the `.es.srt` sidecar is the same English text; script: [SCRIPT.md](docs/demo/dashboard_v2/SCRIPT.md), trace: [evidence/number_trace.md](docs/demo/dashboard_v2/evidence/number_trace.md)). MEASURED 2026-10-18. Three runs per version, one model, one prompt. Not a clean improvement: which cases failed changed. Not a success rate. Same notes as [Failures found and what we changed](#failures-found-and-what-we-changed). The mp4 binary was not re-encoded.
 
 ## Problem and result
 
@@ -155,7 +156,7 @@ What this repository actually does:
 
 **Scope and phased rollout.** [docs/SCOPE.md](docs/SCOPE.md). Phase 1 is one reason code (`damaged`): shadow, then gated send. Exit requires zero external effects without a recorded approval, a green golden set, a red `make eval-regression`, a named backup, and a 30-draft shadow review. That review is not done in this repo. Phase 2 adds reason codes one at a time, each with new cases first. Phase 3 leaves the queue, the budget alert, and model changes with operations. CI keeps replaying cassettes.
 
-**Success metrics.** [docs/METRICS.md](docs/METRICS.md). Measured here on 2026-10-17, stub only: suite **24/24**, checker mean **1.00**. Customer metrics (approved without edit, queue age, cost per completed run including reviewer minutes) are defined and empty.
+**Success metrics.** [docs/METRICS.md](docs/METRICS.md). Current stub suite, measured 2026-10-18, 27 cases: **27/27**, checker mean **1.00**. An earlier stub measurement of the then-current 24-case suite was **24/24** on 2026-10-17, checker mean **1.00**. That is not the current suite. Customer metrics (approved without edit, queue age, cost per completed run including reviewer minutes) are defined and empty.
 
 **Deployment Strategist conversation.** Open with the control: shadow first, then a human gate, and the person who builds it does not keep the approve button. CI tests the runtime against cassettes. It does not certify a model. The ten discovery questions are in [docs/DISCOVERY.md](docs/DISCOVERY.md). How to retarget the sketches above is in [docs/ADAPT_TO_A_REAL_CLIENT.md](docs/ADAPT_TO_A_REAL_CLIENT.md).
 
@@ -229,11 +230,15 @@ invariants. See [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md). The stub suite doe
 Three runs, one model, one prompt. A small sample, not a success rate and
 not an SLA. Measured 2026-10-18 on main `3cbf6a7` with
 `PYTHONPATH=src python3 -m agent_runtime.evalkit live`, outside CI. Model
-`grok-4.20-0309-non-reasoning`. 24 cases (8 happy, 10 edge, 6 adversarial).
-The live gate requires 24/24, so every run exits 1. Prices copied on
+`grok-4.20-0309-non-reasoning`. That commit's golden set was 24 cases
+(8 happy, 10 edge, 6 adversarial), so the live gate on that commit required
+24/24 and every run exits 1. The current suite is 27 cases and its live
+gate requires 27/27. See
+[Live re-measure after the guard fix](#live-re-measure-after-the-guard-fix-684d7b7).
+Prices copied on
 2026-10-17 and not re-validated on 2026-10-18: input US$1.25, cached input
 US$0.20, output US$2.50 per million tokens. Not a default in this repo.
-MEDIDO. Not [EST]. Logs: [docs/live/](docs/live/). Notes, failures, and an
+MEASURED. Not [EST]. Logs: [docs/live/](docs/live/). Notes, failures, and an
 earlier 23-case sample (18/23, 18/23, 19/23, PR #1): [docs/LIVE_SAMPLES.md](docs/LIVE_SAMPLES.md).
 
 | Date | Model | Result | Tokens | Cost | LLM latency p50 / p95 |
@@ -563,7 +568,7 @@ The seven statements are the run-lock miss (`runner.py` 136–137) and a transac
 | Doc | What it is for |
 |---|---|
 | [docs/ADAPT_TO_A_REAL_CLIENT.md](docs/ADAPT_TO_A_REAL_CLIENT.md) | What to swap, what to keep, and the rollout gates |
-| [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) | Plain-language walkthrough, in Spanish, for explaining the system |
+| [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) | Plain-language walkthrough for engineers and buyers |
 | [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md) | Problem, ROI [EST], alternatives |
 | [docs/BUSINESS_VALUE.md](docs/BUSINESS_VALUE.md) | Buyer, levers, baseline versus target, ROI [EST], what is MEASURED |
 | [docs/DISCOVERY.md](docs/DISCOVERY.md) | Ten discovery questions and how the answers change the design |

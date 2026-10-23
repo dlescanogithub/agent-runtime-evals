@@ -5,7 +5,7 @@ Date: 2026-10-18 (ART) · Authorized by Diego (owner voice, 2026-10-18) · Nothi
 - Repo: fresh clone of `dlescanogithub/agent-runtime-evals`, main = **`3cbf6a74f9f97c4d1b5202d884bf1ae8ee9d7795`** (`3cbf6a7`, "Rename local demo heading (#7)"); still main's HEAD at the end of the run (verified by API); working tree clean.
 - Command, per run, in a subshell (`./remeasure_main/run_live.sh N`): `PYTHONPATH=src python3 -m agent_runtime.evalkit live`, with `LIVE_MODE=1 LLM_PROVIDER=xai LLM_BASE_URL=https://api.x.ai/v1 LLM_MODEL=grok-4.20-0309-non-reasoning`, prices US$1.25 in / 0.20 cached / 2.50 out per 1M (price date 2026-10-17, not re-checked today), `MAX_LIVE_SPEND_USD=0.10`. Key passed as env only, never printed; grep of all logs for the key: 0 hits. No `LIVE_*` was exported outside the subshell. Pytest was not run in this task. `make` not used.
 - Suite = 24 golden cases (8 happy, 10 edge, 6 adversarial). The earlier pre-squash samples had 23 cases, so counts are not strictly comparable.
-- Exit code 1 in all three runs: the live gate is "24/24 required", so any miss fails (expected for live, same as in earlier samples).
+- Exit code 1 in all three runs: on this 24-case suite the live gate required 24/24, so any miss fails (expected for live, same as in earlier samples). The later 27-case suite's live gate requires 27/27. That is a different measurement.
 - Per-call logs (JSON lines on stderr, 1 `model_call` per LLM call, with `cost_source: cost_in_usd_ticks`, HTTP status, latency, tokens): `run1/stderr.jsonl`, `run2/stderr.jsonl`, `run3/stderr.jsonl`. Also `report.json`, `stdout.txt` and the per-case live cassettes in `runN/cassettes/` (outside the repo).
 
 | | Run 1 | Run 2 | Run 3 |

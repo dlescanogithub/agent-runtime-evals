@@ -50,7 +50,7 @@ _DENY_EDGE_IDS: frozenset[str] = frozenset(
     }
 )
 _EXAMPLE_ID = re.compile(
-    r"(?:e\.g\.|eg\b|for example|example|such as|like|por ejemplo|ejemplo)"
+    r"(?:e\.g\.|eg\b|for example|example|such as|like)"
     r".{0,40}?LG-[0-9]{4}",
     re.IGNORECASE,
 )
