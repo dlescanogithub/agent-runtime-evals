@@ -11,14 +11,17 @@ This sample ran the golden set as it was on that commit: 24 cases
 logs. A later three-run sample of the completion nudge, on main `684d7b7`,
 is in the README section "Failures found and what we changed". These logs
 are only the 24-case sample. The model is
-`grok-4.20-0309-non-reasoning`. The live gate requires 24/24, so each run
-prints `eval gate (live): FAIL` and the command exits 1.
+`grok-4.20-0309-non-reasoning`. On this commit the suite had 24 cases, so
+the live gate required 24/24 (passed had to equal that 24-case total). Each
+run prints `eval gate (live): FAIL` and the command exits 1. The current
+suite has 27 cases and its live gate requires 27/27. That later sample is
+the README re-measure on main `684d7b7`, not these logs.
 
 Prices used for the cost below were copied on 2026-10-17 (US$1.25 input,
 US$0.20 cached input, US$2.50 output per million tokens) and were not
 re-validated on 2026-10-18. They are not a default in this repo. Cost is
 the sum of `cost_micro_usd` on each `model_call` whose `cost_source` is
-`cost_in_usd_ticks`. MEDIDO. Not [EST].
+`cost_in_usd_ticks`. MEASURED. Not [EST].
 
 | Run | Date | Result | Tokens | Cost | LLM latency p50 / p95 |
 |---|---|---|---|---|---|

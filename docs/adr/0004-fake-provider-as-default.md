@@ -8,7 +8,7 @@ Accepted.
 
 The runtime has to be demonstrable on a laptop and in CI with no secret and
 no invoice. A real model is still a thing the design must allow, because
-the interview question is "what happens when you swap it".
+the question a buyer asks is what happens when it is swapped.
 
 ## Options
 

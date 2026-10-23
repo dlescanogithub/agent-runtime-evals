@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- English only. `docs/HOW_IT_WORKS.md` is a walkthrough for engineers and buyers. Spanish caption sidecars now match the English tracks. Demo mp4 binaries were not re-encoded. The false-refund phrase list is English. An order id introduced as an example is recognized from English markers only. The README success metric is the current stub suite, 27/27 on 2026-10-18. The 24/24 figures are the earlier 24-case suite: stub on 2026-10-17, and the live gate on main `3cbf6a7` (2026-10-18). No change to amounts, case counts, or the pass-equals-total gate.
+
 ## 0.1.1 - 2026-10-22
 
 - Docs only. Rephrased the stub suite-cost cell so a nudge count is plain text. No runtime change.
@@ -94,9 +96,10 @@
   are invariant checks. Happy-path trajectories stay exact.
 - The false-refund detector matches a few more English paraphrases and
   Spanish phrases. It is a heuristic, not a guarantee.
-- Stub suite after these edits: 24/24, 41302 / 2026 tokens, 7371
-  micro-USD. Demo unchanged. Live numbers for this commit are not filled
-  in.
+- Stub suite after these edits, on the 24-case suite (before the three
+  cases added for the 2026-10-18 nudge work): 24/24, 41302 / 2026 tokens,
+  7371 micro-USD. Demo unchanged. Live numbers for this commit are not
+  filled in.
 - README section "Use cases, governance and business strategy": the Lumen
   Desk refund agent is the only implemented case. Ticket triage, scheduling,
   a personal-finance assistant, and a personal inbox assistant are design

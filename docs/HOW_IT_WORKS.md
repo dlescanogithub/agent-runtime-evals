@@ -1,340 +1,340 @@
-# Cómo funciona (para contarlo en una entrevista)
+# How it works
 
-Escrito en castellano rioplatense, con los términos técnicos en inglés.
-Lumen Goods es un retailer inventado. Los pedidos son sintéticos. No hay
-datos de un cliente real.
+A walkthrough for engineers and buyers.
+Lumen Goods is a fictional retailer. The orders are synthetic. There is no
+data from a real customer.
 
-La idea de este texto: que puedas explicar el sistema de punta a punta sin
-leer el código en el momento. Si un número de abajo no dice "medido", es
-[EST] o no es un número.
+The point of this text is to explain the system from end to end without
+reading the code at the same time. If a number below is not marked
+MEASURED, it is [EST] or it is not a number.
 
-## En una frase
+## In one sentence
 
-Es un agente de back-office que propone reembolsos, pero no mueve plata ni
-manda un email hasta que una persona aprueba. Cada paso queda en una base.
-Si el proceso se cae, retoma. Si alguien cambia el modelo y el agente se
-salta un lookup, el CI no deja mergear.
+It is a back-office agent that proposes refunds, and it does not move money
+or send an email until a person approves. Every step is stored in a
+database. If the process dies, it resumes. If someone changes the model and
+the agent skips a lookup, CI does not allow the merge.
 
-## El problema, dicho simple
+## The problem, in plain words
 
-En la demo el agente "anda". El problema aparece después: cambian el prompt
-o el modelo, el agente reembolsa de más o le escribe a otra persona, y se
-enteran cuando el cliente se queja. No hay registro de qué hizo, ni un tope
-de costo por corrida.
+In a demo the agent "works". The problem shows up later: the prompt or the
+model changes, the agent refunds too much or writes to someone else, and
+the team finds out when the customer complains. There is no record of what
+it did, and no cost cap per run.
 
-Eso es lo que este repo muestra cómo evitar, en chico.
+This repo shows how to avoid that, at a small scale.
 
-## Qué hace cada módulo
+## What each module does
 
-Pensalo como cajas con una sola responsabilidad.
+Each box has one responsibility.
 
-| Módulo | Qué hace | Qué no hace |
+| Module | What it does | What it does not do |
 |---|---|---|
-| `cli.py` / `api.py` | Arrancan una corrida, aprueban, rechazan, reanudan | No deciden la política |
-| `demo.py` | Cuenta la historia: se cae, retoma, aprueba | Borra su propia base para que la historia se pueda repetir |
-| `runner.py` | El loop. En cada vuelta hace una sola cosa | No esconde estado en memoria |
-| `history.py` | Rearma el transcript leyendo los steps | No es otra fuente de verdad |
-| `providers/fake.py` | El modelo local. Lee `customer_message` | No llama a la red |
-| `providers/cassette.py` | Repite respuestas grabadas | No decide nada nuevo |
-| `providers/openai_compatible.py` | POST HTTP al formato de OpenAI. Sirve para xAI u OpenAI | Apagado salvo `LIVE_MODE=1`. CI no lo usa. No está probado contra la API real |
-| `providers/anthropic.py` | Adaptador fino al API Messages de Anthropic | Las mismas reglas: opt-in, tope de gasto, sin probar contra la API real |
-| `tools.py` | Valida argumentos y ejecuta las cuatro tools | No aprueba |
-| `gate.py` | La lista de tools que frenan: `send_refund`, `send_email` | No es un prompt |
-| `policy.py` | La regla de negocio, pura: mismos datos, misma decisión | No toca la base |
-| `catalog.py` | Los pedidos sintéticos, solo lectura | Los reembolsos no se escriben acá |
-| `store.py` | SQLite: runs, steps, effects, ledger | No es Postgres |
-| `trace.py` | Un JSONL por corrida: latencia, tokens, costo | No guarda el email ni el cuerpo |
-| `evalkit/` | Los 23 casos, los cassettes, el checker determinístico | No llama a un modelo pago. `make eval-live` es aparte y no corre en CI |
+| `cli.py` / `api.py` | Start a run, approve, reject, resume | Do not decide policy |
+| `demo.py` | Tells the story: crash, resume, approve | Deletes its own database so the story can be repeated |
+| `runner.py` | The loop. Each turn does one thing | Does not hide state in memory |
+| `history.py` | Rebuilds the transcript by reading the steps | Is not a second source of truth |
+| `providers/fake.py` | The local model. Reads `customer_message` | Does not call the network |
+| `providers/cassette.py` | Replays recorded responses | Does not decide anything new |
+| `providers/openai_compatible.py` | HTTP POST in the OpenAI format. Used for xAI or OpenAI | Off unless `LIVE_MODE=1`. CI does not use it. Hosted samples are outside CI |
+| `providers/anthropic.py` | Thin adapter to the Anthropic Messages API | Same rules: opt-in and a spend cap. The measured hosted sample in this repo is xAI, not this adapter |
+| `tools.py` | Validates arguments and runs the four tools | Does not approve |
+| `gate.py` | The list of tools that stop: `send_refund`, `send_email` | Is not a prompt |
+| `policy.py` | The business rule, pure: same data, same decision | Does not touch the database |
+| `catalog.py` | The synthetic orders, read only | Refunds are not written here |
+| `store.py` | SQLite: runs, steps, effects, ledger | Is not Postgres |
+| `trace.py` | One JSONL per run: latency, tokens, cost | Does not store the email or the body |
+| `evalkit/` | The 27 cases, the cassettes, the deterministic checker | Does not call a paid model. `make eval-live` is separate and does not run in CI |
 
-## Las cuatro tools
+## The four tools
 
-1. `lookup_order` — lee un pedido. No frena.
-2. `lookup_policy` — lee la ventana de días de un motivo. No frena.
-3. `send_refund` — efecto externo. Frena hasta que una persona dice que sí.
-4. `send_email` — efecto externo. Frena. El destinatario tiene que ser el
-   email de ese pedido, en `@lumen-goods.example`.
+1. `lookup_order` reads an order. It does not stop.
+2. `lookup_policy` reads the day window for a reason. It does not stop.
+3. `send_refund` is an external effect. It stops until a person says yes.
+4. `send_email` is an external effect. It stops. The recipient has to be
+   the email on that order, at `@lumen-goods.example`.
 
-No hay una tool `approve`. Si la hubiera, el modelo se aprobaría solo.
+There is no `approve` tool. If there were, the model could approve itself.
 
-## Una corrida, de punta a punta
+## One run, end to end
 
-El ejemplo es el de `make demo`: pedido `LG-1001`, motivo `damaged`,
-4200 centavos. La lámpara llegó rota. Todo es sintético.
+The example is `make demo`: order `LG-1001`, reason `damaged`,
+4200 cents. The lamp arrived broken. All of it is synthetic.
 
-1. El CLI crea una fila `runs` con estado `running` y el input en JSON.
-2. El runner le pide un turno al provider. El stub no "piensa": mira qué
-   tools ya se llamaron. Como no hubo lookup, pide `lookup_order`.
-3. Ese turno se guarda como step. En la demo, ahí cortamos a propósito
-   (`interrupted`). Es el crash entre dos pasos.
-4. `resume` no vuelve a llamar al modelo para ese turno. Lee el step y
-   sigue. Ejecuta `lookup_order`. El catálogo devuelve el pedido de Avery
-   Chen. El email queda en la base, no en el trace.
-5. El stub pide `lookup_policy`. La regla de `damaged` es 30 días. El
-   pedido tiene 5. Sigue.
-6. El stub pide `send_refund` por 4200, que es el saldo, no un número
-   inventado. El runner valida los argumentos y, como la tool está en
-   `gate.py`, inserta un step `waiting_review` y se detiene. Todavía no
-   hay fila en `effects`. La plata no se movió.
-7. Una persona aprueba por CLI o por la API. Eso no ejecuta todavía.
-   `resume` ejecuta. `send_refund` vuelve a correr `policy.decide`. Si el
-   monto no es el que la política permite, no escribe nada. Si coincide,
-   escribe el effect y suma el ledger en la misma transacción.
-8. El stub pide `send_email` al email del pedido. Otra vez el gate.
-9. Después de la segunda aprobación, el stub cierra con un JSON chico:
-   `outcome`, `order_id`, `amount_cents`, `customer_summary`. La corrida
-   queda `completed`.
+1. The CLI creates a `runs` row with status `running` and the input as JSON.
+2. The runner asks the provider for a turn. The stub does not "think": it
+   looks at which tools were already called. With no lookup yet, it asks
+   for `lookup_order`.
+3. That turn is stored as a step. In the demo, the run is cut there on
+   purpose (`interrupted`). That is the crash between two steps.
+4. `resume` does not call the model again for that turn. It reads the step
+   and continues. It runs `lookup_order`. The catalog returns Avery Chen's
+   order. The email stays in the database, not in the trace.
+5. The stub asks for `lookup_policy`. The `damaged` rule is 30 days. The
+   order is 5 days old. It continues.
+6. The stub asks for `send_refund` for 4200, which is the balance, not an
+   invented number. The runner validates the arguments and, because the
+   tool is in `gate.py`, inserts a `waiting_review` step and stops. There
+   is still no row in `effects`. The money has not moved.
+7. A person approves by CLI or by the API. That does not execute yet.
+   `resume` executes. `send_refund` runs `policy.decide` again. If the
+   amount is not what the policy allows, it writes nothing. If it matches,
+   it writes the effect and adds to the ledger in the same transaction.
+8. The stub asks for `send_email` to the email on the order. The gate
+   stops it again.
+9. After the second approval, the stub closes with a small JSON object:
+   `outcome`, `order_id`, `amount_cents`, `customer_summary`. The run
+   ends `completed`.
 
-En la medición del 2026-10-18 (`make demo`, versión 0.1.0, modelo `stub-llm-v1`) esa
-historia, con el corte y las dos aprobaciones, usó 3425 tokens de entrada,
-124 de salida y 584 micro-USD al precio sintético. No es una factura de un
-proveedor.
+In the 2026-10-18 measurement (`make demo`, version 0.1.0, model
+`stub-llm-v1`) that story, with the cut and the two approvals, used 3425
+input tokens, 124 output tokens, and 584 micro-USD at the synthetic price.
+It is not a vendor invoice.
 
-Si la persona rechaza el reembolso, el step queda `rejected`, el modelo
-recibe ese resultado y el stub cierra en `refund_rejected`. El effect no
-se escribe. El caso `edge_human_reject` acepta otra etiqueta, por ejemplo
-`denied`, si no hubo effect, `send_refund` pasó por el gate, y el texto
-al cliente no dice que el reembolso ya se hizo.
+If the person rejects the refund, the step stays `rejected`, the model
+receives that result, and the stub closes on `refund_rejected`. The effect
+is not written. The case `edge_human_reject` accepts another label, for
+example `denied`, when there was no effect, `send_refund` went through the
+gate, and the text to the customer does not say the refund already happened.
 
-## Qué pasa si se cae a la mitad de la tool
+## What happens if it dies in the middle of the tool
 
-El step queda `running` y el contador de intentos ya se guardó. Al retomar,
-se reintenta con los intentos que quedan. Si el effect ya se había escrito,
-la tool devuelve ese recibo y no suma de nuevo. Por eso el orden importa:
-primero se busca el effect, después se revalida la política. Si lo hacés al
-revés, el segundo intento ve el saldo en cero y parece un rechazo, aunque
-la plata ya se movió.
+The step stays `running` and the attempt counter is already stored. On
+resume, it retries with the attempts that remain. If the effect was already
+written, the tool returns that receipt and does not add again. Order
+matters: look up the effect first, then re-check the policy. The other way
+around, the second attempt sees a zero balance and looks like a rejection,
+even though the money already moved.
 
-## Por qué cada decisión
+## Why each decision
 
-**El modelo no es de confianza.** El stub lee `customer_message`. Si el
-texto pide saltear el lookup, inflar el monto, o mandar el mail a otra
-dirección, el stub obedece. La tool o el gate lo frenan, y no queda un
-effect. Eso prueba los controles contra este stub. No prueba un modelo
-de verdad: el CI solo reproduce cassettes.
+**The model is not trusted.** The stub reads `customer_message`. If the
+text says to skip the lookup, inflate the amount, or send the email
+somewhere else, the stub obeys. The tool or the gate stops it, and no
+effect is written. That tests the controls against this stub. It does not
+test a real model: CI only replays cassettes.
 
-**El gate está en código, no en el prompt.** Un prompt que dice "no
-reembolses sin aprobación" ayuda. Una rama que no ejecuta la tool hasta que
-llega un approve por la API es más fuerte. El modelo no tiene cómo llamar
-a ese approve.
+**The gate is in code, not in the prompt.** A prompt that says "do not
+refund without approval" helps. A branch that does not run the tool until
+an approve arrives through the API is stronger. The model has no way to
+call that approve.
 
-**La idempotency key la calcula el runtime.** Si la elige el modelo, dos
-reintentos pueden ser dos pagos. La key es tool + argumentos de negocio
-(pedido, monto, motivo).
+**The runtime computes the idempotency key.** If the model picks it, two
+retries can be two payments. The key is the tool plus the business
+arguments (order, amount, reason).
 
-**SQLite ahora, Postgres después.** Para una demo y para el CI no hace
-falta un servidor. Las tablas están pensadas para el diseño de producción:
-un worker que toma una corrida con `SELECT … FOR UPDATE SKIP LOCKED` para
-que dos workers no agarren la misma. Eso está escrito en el ADR 0001 y no
-está implementado. No lo presentes como si ya corriera.
+**SQLite now, Postgres later.** A demo and CI do not need a server. The
+tables are shaped for the production design: a worker that takes a run
+with `SELECT … FOR UPDATE SKIP LOCKED` so two workers do not take the same
+one. That is written in ADR 0001 and it is not implemented. Do not describe
+it as running.
 
-**Cassettes en el CI.** Una llamada live cuesta plata y no es
-determinística. El CI reproduce las respuestas grabadas del stub. Las tools
-y el gate sí corren de verdad. Grabar de nuevo es un diff que se revisa,
-no un paso automático. Cambiar el modelo en producción, sin regrabar, no
-pone el CI en rojo. El gate no ve ese cambio.
+**Cassettes in CI.** A live call costs money and is not deterministic. CI
+replays the stub's recorded responses. The tools and the gate do run for
+real. Recording again is a diff that a person reviews, not an automatic
+step. Changing the model in production, without re-recording, does not turn
+CI red. The gate does not see that change.
 
-**Dos niveles de eval.** Lo determinístico (trayectoria, schema, montos,
-effects, gate) bloquea siempre. El checker es una checklist en código y
-bloquea si el puntaje baja de 0.80. No es un juez y no llama a un modelo.
-Un LLM judge es trabajo futuro. No hay un número de acuerdo con humanos.
-No lo inventes en la entrevista.
+**Two eval levels.** The deterministic checks (trajectory, schema, amounts,
+effects, gate) always block. The checker is a checklist in code and blocks
+if the score falls under 0.80. It is not a judge and it does not call a
+model. An LLM judge is future work. There is no human-agreement number.
+Do not invent one.
 
-**Budget y circuit breaker son cosas distintas.** El budget es plata del
-modelo (micro-USD). El tope del reembolso es otra cosa (el saldo del pedido
-y un máximo de 100000 centavos). El circuit breaker cuenta fallos de tools
-seguidos. Un turno del modelo que sale bien no lo reinicia, porque si no un
-modelo que insiste con una tool rota lo resetearía siempre.
+**Budget and circuit breaker are different things.** The budget is model
+spend (micro-USD). The refund cap is something else (the order balance and
+a maximum of 100000 cents). The circuit breaker counts consecutive tool
+failures. A successful model turn does not reset it, because a model that
+keeps calling a broken tool would reset it every time.
 
-**Los traces no llevan el email.** Si mañana se exportan a un colector, no
-querés una segunda pasada de redacción. El cuerpo y el destinatario quedan
-en SQLite, que es el límite de confianza local.
+**Traces do not carry the email.** If they are exported to a collector
+later, a second redaction pass should not be required. The body and the
+recipient stay in SQLite, which is the local trust boundary.
 
-## Cómo se lo explicaría a un cliente
+## What a buyer is told
 
-En la primera reunión no abriría el repo. Diría esto:
+A person reads the order, reads the policy, and types the refund. This
+runtime does not remove that person. The agent does the reading and
+proposes the amount. The person approves or rejects. If the process dies,
+it does not pay twice. If the model changes tomorrow, the same case set
+has to stay green or the change does not ship.
 
-"Hoy una persona lee el pedido, lee la política y tipea el reembolso.
-Nosotros no sacamos a esa persona. El agente hace la lectura y propone el
-monto. La persona aprueba o rechaza. Si el proceso se cae, no se paga dos
-veces. Si mañana cambian el modelo, el mismo set de casos tiene que seguir
-verde o el cambio no sale."
+The ten questions in [DISCOVERY.md](DISCOVERY.md) change the design, in
+this order:
 
-Después preguntaría las diez de [DISCOVERY.md](DISCOVERY.md), en este orden,
-porque cambian el diseño:
+- If a mistake costs money, there is a gate. If the agent only drafts text
+  that a person always sends, the email is not even a tool.
+- If the system of record does not accept an idempotency key, the pilot
+  does not start.
+- If the volume is an office (in the hypothetical case, 120 per day
+  [EST]), do not start with a distributed queue. Write down when that
+  would be warranted.
+- If they do not know today's error rate, do not promise an improvement.
+  Measure "approved without edit" in the pilot.
+- If the approver has no backup, do not turn on sending.
 
-- Si el error duele plata, hay gate. Si el agente solo redacta un texto que
-  la persona siempre manda, el email ni es una tool.
-- Si el sistema de registro no acepta una idempotency key, el piloto no
-  arranca.
-- Si el volumen es el de una oficina (en el caso hipotético, 120 por día
-  [EST]), no arranco con una cola distribuida. Dejo escrito cuándo sí.
-- Si no saben la tasa de error de hoy, no prometo una mejora. Mido "aprobado
-  sin edición" en el piloto.
-- Si el aprobador no tiene backup, no prendo el envío.
+The rollout is in [SCOPE.md](SCOPE.md):
 
-El rollout que propondría está en [SCOPE.md](SCOPE.md):
+1. Shadow. The agent proposes, the person compares, nothing is sent. Leave
+   shadow with 30 drafts reviewed by hand and no policy violation. That is
+   pilot work. This repo did not do it.
+2. Gated send. Only then does `send_refund` hit their system.
+3. Only after that, more refund reasons, one at a time, each with new
+   cases in the golden set.
 
-1. Sombra. El agente propone, la persona compara, no se envía nada. Salimos
-   de la sombra con 30 borradores revisados a mano y ninguna violación de
-   política. Eso es trabajo del piloto. Este repo no lo hizo.
-2. Envío con gate. Recién ahí `send_refund` pega contra el sistema de ellos.
-3. Recién después, más motivos de reembolso, de a uno, cada uno con casos
-   nuevos en el golden set.
+The handoff is in [RUNBOOK.md](RUNBOOK.md). The person who builds it does
+not keep the approve button. Operations operates. The approver approves.
+The person who changes the prompt does not merge that change alone.
 
-El handoff está en [RUNBOOK.md](RUNBOOK.md). El que construye no se queda
-con el botón de aprobar. Operaciones opera. El aprobador aprueba. El que
-cambia el prompt no se mergea solo.
+Savings stay in two columns. Stub cost is measured (584 micro-USD for the
+demo, 12117 micro-USD for the 27-case suite, on 2026-10-18). Hour savings
+are [EST] and live in the business case, with the assumptions in view. The
+two columns are not mixed.
 
-Si me preguntan por el ahorro, separo los números. El costo del stub está
-medido (584 micro-USD la demo, 12117 micro-USD las 27 corridas, el
-2026-10-18). El ahorro de horas es [EST] y está en el business case, con
-los supuestos a la vista. No mezclo las dos columnas.
+## Use cases, governance, and strategy
 
-## Casos de uso, gobernanza y estrategia
+The README has a fixed section: "Use cases, governance and business
+strategy". The detail for adapting the runtime is in
+[ADAPT_TO_A_REAL_CLIENT.md](ADAPT_TO_A_REAL_CLIENT.md). In short:
 
-El README tiene una sección fija: "Use cases, governance and business
-strategy". El detalle para adaptar el runtime está en
-[ADAPT_TO_A_REAL_CLIENT.md](ADAPT_TO_A_REAL_CLIENT.md). En corto:
+This repo implements one case: the Lumen Desk refund desk. The agent
+proposes. `send_refund` and `send_email` stop until a person approves or
+rejects. `lookup_order` and `lookup_policy` only read. If the model says
+`refund_completed` and there is no matching effect, and nobody rejected
+`send_refund` or `send_email` on that run, the runtime hands the
+inconsistency back (`completion_nudge`, cap `MAX_COMPLETION_NUDGES`, 2)
+and does not write the refund on its own. `denied`, `needs_ops`, and
+`refund_rejected` do not get that nudge. If it keeps saying the refund
+already happened, the run ends `failed` with `needs_review`. That detector
+is a fixed list of English phrases. It is a heuristic, not a guarantee: a
+paraphrase, or another language, is not matched. If the person rejects, as
+in `edge_human_reject`, no effect is written.
 
-Este repo implementa un solo caso: el escritorio de reembolsos de Lumen
-Desk. El agente propone. `send_refund` y `send_email` frenan hasta que una
-persona aprueba o rechaza. `lookup_order` y `lookup_policy` solo leen. Si
-el modelo dice `refund_completed` y no hay un effect que coincida, y nadie
-rechazó `send_refund` o `send_email` en esa corrida, el runtime le devuelve
-la inconsistencia (`completion_nudge`, tope `MAX_COMPLETION_NUDGES`, 2) y
-no escribe el reembolso por su cuenta. `denied`, `needs_ops` y
-`refund_rejected` no reciben ese empujón. Si sigue diciendo que ya se hizo,
-la corrida queda `failed` con `needs_review`. Ese detector es una lista de
-frases en inglés y unas pocas en español (`reembolso procesado`, `ya te
-devolvimos`, `se acreditó`). Es una heurística, no una garantía: otra
-redacción o otro idioma no entra. Si la persona rechaza, como en
-`edge_human_reject`, no se escribe ningún effect.
+The other cases in the README are sketches, not code. A ticket agent that
+classifies and does not tell the customer until the queue owner approves.
+A scheduling agent that does not book, move, or cancel until the calendar
+owner says yes. A personal expense assistant that proposes a payment and
+does not move money. A personal mail assistant that drafts and does not
+send. In all four, a person approves the effect. The model has no approve
+button. None of them names a real customer, employer, or project, and none
+of them brings a real volume or a real price.
 
-Los otros casos del README son bocetos, no código. Un agente de tickets
-que clasifica y no avisa al cliente hasta que el dueño de la cola aprueba.
-Un agente de turnos que no reserva, mueve ni cancela hasta que el dueño
-del calendario dice que sí. Un asistente personal de gastos que propone un
-pago y no mueve plata. Un asistente personal de correo que redacta y no
-envía. En los cuatro, la persona aprueba el efecto. El modelo no tiene un
-botón de aprobar. Ninguno nombra un cliente, un empleador ni un proyecto
-real, y ninguno trae un volumen o un precio de verdad.
+Governance, in this repo, is pointed at by files:
 
-La gobernanza, en este repo, se señala con archivos:
+- Controls: typed tools and least privilege in `tools.py`, an amount cap
+  in `policy.py`.
+- Human gate: `gate.py`.
+- Traces: one JSONL per run in `trace.py`, with the run id, without the
+  email body. Adversarial cases check invariants, not the stub's exact
+  tool list.
+- Risks: [RISKS.md](RISKS.md).
+- Cost and caps: [COST.md](COST.md).
+- Incident and rollback: [RUNBOOK.md](RUNBOOK.md).
 
-- Controles: tools tipadas y privilegio mínimo en `tools.py`, tope de
-  monto en `policy.py`.
-- Gate humano: `gate.py`.
-- Trazas: un JSONL por corrida en `trace.py`, con el run id, sin el cuerpo
-  del email. Los casos adversariales chequean invariantes, no la lista
-  exacta de tools del stub.
-- Riesgos: [RISKS.md](RISKS.md).
-- Costo y topes: [COST.md](COST.md).
-- Incidente y rollback: [RUNBOOK.md](RUNBOOK.md).
+It does not cover the customer's identity provider, OpenTelemetry, Postgres
+with `SKIP LOCKED`, or a model judge.
 
-No cubre el identity provider del cliente, OpenTelemetry, Postgres con
-`SKIP LOCKED`, ni un juez de modelo.
+Business strategy keeps two columns. Hour savings are in
+[BUSINESS_CASE.md](BUSINESS_CASE.md) and are [EST] (about USD 290 per
+business day [EST], on 120 orders per day [EST]). Scope and phases, with
+exit criteria, are in [SCOPE.md](SCOPE.md): shadow, then gated send, then
+more reasons one at a time. What was measured is in
+[METRICS.md](METRICS.md): on 2026-10-18 the stub passed 27/27. Customer
+metrics (approved without edit, queue age) are defined and empty. In a
+Deployment Strategist conversation the order is shadow, then gate, the
+builder does not keep the button, and CI tests the runtime.
 
-La estrategia de negocio separa dos columnas. El ahorro de horas está en
-[BUSINESS_CASE.md](BUSINESS_CASE.md) y es [EST] (unos USD 290 por día
-hábil [EST], sobre 120 pedidos por día [EST]). El alcance y las fases,
-con criterio de salida, están en [SCOPE.md](SCOPE.md): sombra, después
-envío con gate, después más motivos de a uno. Lo medido está en
-[METRICS.md](METRICS.md): el 2026-10-18 el stub pasó 27/27. Las métricas
-de un cliente (aprobado sin editar, edad de la cola) están definidas y
-vacías. En una conversación de Deployment Strategist el orden es sombra,
-después gate, el que construye no se queda con el botón, y el CI prueba
-el runtime.
+## Questions engineers and buyers ask
 
-## Preguntas que te pueden hacer
+### Runtime
 
-### De runtime
+**Where is the state if the process dies?**
+In SQLite. The runner remembers nothing: each turn reads the run.
+`interrupted` is a cut between steps. `running` on a step is a cut in the
+middle of the tool.
 
-**¿Dónde está el estado si se cae el proceso?**
-En SQLite. El runner no se acuerda de nada: en cada vuelta lee la corrida.
-`interrupted` es un corte entre pasos. `running` en un step es un corte a
-la mitad de la tool.
+**Why does it not pay twice?**
+Because the business key is already written. The second attempt reads the
+effect and returns the same receipt. The ledger does not add again.
 
-**¿Por qué no se paga dos veces?**
-Porque la key de negocio ya está escrita. El segundo intento lee el effect
-y devuelve el mismo recibo. El ledger no suma de nuevo.
+**What if the model skips the lookup but the amount is correct?**
+The tool rejects `send_refund` if that run did not have a successful
+`lookup_order` and `lookup_policy`. It does not open the gate and it does
+not write an effect. The case `adv_skip_lookup` expects exactly that, and
+it passes. The forced regression uses the same kind of cassette against
+the happy case, which expects a completed refund, so the gate stays red.
+The two measure different things: one, that the control stops the attack;
+the other, that a bad transcript does not slip through as a happy case.
 
-**¿Qué pasa si el modelo se salta el lookup pero el monto es correcto?**
-La tool rechaza `send_refund` si en esa corrida no hubo `lookup_order` y
-`lookup_policy` exitosos. No abre el gate y no escribe un effect. El caso
-`adv_skip_lookup` espera exactamente eso, y pasa. La regresión forzada
-usa el mismo tipo de cassette contra el caso feliz, que espera un
-reembolso completado, y por eso el gate queda rojo. Las dos cosas miden
-distinto: una que el control frena el ataque, la otra que un transcript
-malo no se cuela como caso feliz.
+**Does the stub show that GPT or Claude are safe?**
+No. It shows the runtime against recorded responses. A real model is not
+in CI. Re-recording cassettes would be a reviewed diff, and this repo does
+not do that against a paid model. A live run, if someone pays for it, is
+separate and capped.
 
-**¿El stub demuestra que GPT o Claude son seguros?**
-No. Demuestra el runtime contra respuestas grabadas. Un modelo de verdad
-no está en el CI. Regrabar cassettes sería un diff revisado, y hoy nadie
-lo hace contra un modelo pago. Una corrida live, si la pagan, va aparte
-y con tope.
+**Why is stub latency in microseconds?**
+Because it is time inside the process, with a stub. It is not a model on
+the network. The report separates model calls (`latency_us_p50` /
+`latency_us_p95`) from tool steps. On the stub both stay in microseconds
+and neither is an SLO. Live model-call latency, in seconds, is in the
+README and comes from three runs on 2026-10-18 on `main` `3cbf6a7`. It is
+not a success rate.
 
-**¿Por qué la latencia del stub es de microsegundos?**
-Porque es el tiempo adentro del proceso, con un stub. No es un modelo en
-red. El reporte separa las llamadas al modelo (`latency_us_p50` /
-`latency_us_p95`) de los pasos de tools. En el stub las dos quedan en
-microsegundos y no son un SLO. La latencia live de las llamadas al modelo,
-en segundos, está en el README y es de tres corridas del 2026-10-18 en
-`main` `3cbf6a7`, no una tasa de éxito.
+### Deployment
 
-### De Deployment Strategist
+**How does this go to production without risking refunds?**
+Shadow first, gate second. One reason (`damaged`). An approver with a
+backup. Zero effects without a recorded approval is an exit criterion.
+If one appears, sending is turned off.
 
-**¿Cómo lo ponés en producción sin arriesgar reembolsos?**
-Sombra primero, gate después. Un solo motivo (`damaged`). Un aprobador con
-backup. Cero effects sin una aprobación registrada es criterio de salida.
-Si aparece uno, se apaga.
+**What does the customer's IT provide?**
+A place to run the process, the model secret in the environment (not in
+the repo), an order system that accepts an idempotency key, and the
+identity provider in front of the API. This MVP requires a bearer token
+(`API_TOKEN`) on everything except `GET /health`. That does not replace
+the customer's login.
 
-**¿Qué le pedís a IT del cliente?**
-Un lugar donde correr el proceso, el secreto del modelo en el entorno (no
-en el repo), un sistema de pedidos que acepte idempotency key, y el
-identity provider delante de la API. Este MVP pide un bearer token
-(`API_TOKEN`) en todo menos `GET /health`. Eso no reemplaza el login
-del cliente.
+**Who owns the gate?**
+The approver. The person who changes the prompt does not approve the
+refunds from their own change on the first day. The backup is named before
+sending is turned on. After the handoff, the person who built it does not
+keep the button.
 
-**¿Quién es dueño del gate?**
-El aprobador. El que cambia el prompt no aprueba los reembolsos de su
-propio cambio el primer día. El backup está nombrado antes de prender el
-envío. Después del handoff, el que construyó no conserva el botón.
+**How is the pilot measured?**
+In CI: the golden set green and the forced regression red. With people:
+drafts approved without editing the amount, the reason, or the recipient,
+and queue age. This repo does not publish an "accuracy" it did not
+measure. There is no agreement number between a judge and a human, because
+there is no judge: the checker is code.
 
-**¿Cómo medís el piloto?**
-En CI: el golden set verde y la regresión forzada roja. Con la gente: drafts
-aprobados sin editar el monto, el motivo o el destinatario, y edad de la
-cola. No publico un "accuracy" que no medí. No hay un acuerdo entre un
-juez y un humano, porque no hay un juez: el checker es código.
+**What if they change the model?**
+This repo's CI does not notice. It only sees cassettes. Trying the new
+model is a separate run, with a spend cap, and a cassette diff that
+someone who did not write it reviews. The 2026-10-18 live sample is in the
+README: three runs, one model, not a success rate. CI still does not call
+it. `main` can require the `ci` job. That check is configured on GitHub.
+The repo does not turn it on by itself. Rollback is deploying the previous
+revision and rejecting whatever is still waiting. Money already sent is
+reversed by a person in the order system. The agent has no magic undo.
 
-**¿Qué pasa si cambian el modelo?**
-El CI de este repo no se entera. Solo ve cassettes. Si quieren probar el
-modelo nuevo, es una corrida aparte, con tope de gasto, y un diff de
-cassettes que mira alguien que no lo escribió. La muestra live del
-2026-10-18 está en el README: tres corridas, un modelo, no una tasa de
-éxito. El CI sigue sin llamarla. `main` puede exigir el job `ci`. Ese check se
-configura en GitHub. El repo no lo enciende solo. El rollback es deployar
-la revisión anterior y rechazar lo que quedó esperando. Lo que ya se pagó
-lo revierte una persona en el sistema de pedidos. El agente no tiene undo
-mágico.
+**What if the customer wants the gate removed to go faster?**
+The cost of a wrong refund is set next to the 45-second saving [EST]. If
+they still want the gate removed, that is outside this scope. It is not a
+hidden flag.
 
-**¿Y si el cliente quiere sacarle el gate para ir más rápido?**
-Les muestro el costo de un reembolso mal hecho contra el ahorro de los 45
-segundos [EST]. Si igual lo quieren, queda fuera de este alcance. No es un
-flag escondido.
+**What does it cost?**
+The default path costs nothing: stub and cassettes. A live model is not in
+CI. The stub's synthetic price is in COST.md so the ledger adds up. A
+vendor price is copied from the official page on the day it is measured.
+This repo does not contain that number, because that run was not done.
 
-**¿Cuánto cuesta?**
-El camino por defecto, cero: stub y cassettes. Un modelo live no está en el
-CI. El precio sintético del stub está en COST.md para que la cuenta cierre.
-El precio de un proveedor se copia de la página oficial el día que se mide.
-No tengo ese número porque no hice esa corrida.
+**What does it not do?**
+It has a bearer token, not the customer's identity provider. It does not
+export OpenTelemetry. It does not run two workers with `SKIP LOCKED`. It
+does not have 100 cases. It does not have an LLM judge. It does not promise
+a measured ROI. The business case marks [EST] on what is estimated.
 
-**¿Qué no hace?**
-Tiene un bearer token, no el identity provider del cliente. No exporta
-OpenTelemetry. No corre dos workers con `SKIP LOCKED`. No tiene 100 casos.
-No tiene un LLM judge. No promete un ROI medido. El business case marca
-[EST] lo que es estimado.
-
-**¿Cómo se lo dejás operando?**
-Con el runbook: quién mira la cola, qué señal es un incidente, cómo se
-retoma un step `running`, cómo se hace rollback, y un checklist de handoff.
-La última línea es que el builder no se queda como aprobador.
+**How is it left running?**
+With the runbook: who watches the queue, which signal is an incident, how
+to resume a `running` step, how to roll back, and a handoff checklist.
+The last line is that the builder does not stay on as the approver.

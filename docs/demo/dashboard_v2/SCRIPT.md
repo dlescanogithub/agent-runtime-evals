@@ -1,6 +1,6 @@
 # agent-runtime-evals dashboard demo v2 (three measured re-runs): script used
 
-Voice: xAI TTS `leo` en-US, speed 0.95. Burned-in EN subtitles; ES soft track only (mov_text, disabled by default). Dashboard canvas rendered with PIL (2560x1240) with camera moves and highlights; code, data and number trace in `evidence/`.
+Voice: xAI TTS `leo` en-US, speed 0.95. Burned-in English subtitles. The mp4 still carries the original Spanish soft track (mov_text, disabled by default). The binary was not re-encoded. The sidecar `agent_runtime_evals_dashboard_demo_en_v2.es.srt` is English and matches the `.en.srt` file. Dashboard canvas rendered with PIL (2560x1240) with camera moves and highlights; code, data and number trace in `evidence/`.
 
 | Start (s) | Segment | Narration |
 |---|---|---|
